@@ -56,12 +56,12 @@
 
   .thought-node {
     position: absolute; transform: translate(-50%, -50%);
-    width: max-content; max-width: 280px; min-width: 4em; padding: 3px 5px;
+    width: max-content; max-width: 320px; min-width: 4em; padding: 4px 8px;
     text-align: center; font-size: 15px; line-height: 1.65; letter-spacing: 0.02em;
-    white-space: nowrap; overflow-wrap: break-word;
+    white-space: normal; word-break: break-all;
     opacity: 0; animation: node-in 1.1s ease forwards;
   }
-  .thought-node.seed { white-space: nowrap; max-width: none; min-width: 0; font-weight: 700; border-bottom: 1px solid currentColor; padding-bottom: 3px; }
+  .thought-node.seed { white-space: normal; max-width: 400px; font-weight: 700; border-bottom: 2px solid currentColor; padding-bottom: 6px; font-size: 17px; }
   .thought-node[data-relation="synonym"]     { color: var(--c-syn); }
   .thought-node[data-relation="hypernym"]    { color: var(--c-hyper); font-weight: 700; }
   .thought-node[data-relation="hyponym"]     { color: var(--c-hypo);  font-style: italic; }
@@ -137,7 +137,7 @@
   <div id="genesis">
     <div class="genesis-title">FIRST SENTENCE</div>
     <div class="genesis-field">
-      <input id="sentence" class="genesis-input" autofocus spellcheck="false" />
+      <input id="sentence" class="genesis-input" autofocus spellcheck="false" placeholder="" />
       <div class="genesis-hint">press enter</div>
     </div>
   </div>
@@ -162,7 +162,7 @@
 (function () {
   "use strict";
 
-  // ---------- theme (day/night by local time, 60s cross-fade) ----------
+  // ---------- theme ----------
   function computePhase() {
     var h = new Date().getHours();
     return (h >= 6 && h < 18) ? "day" : "night";
@@ -176,8 +176,7 @@
   applyTheme();
   setInterval(applyTheme, 60000);
 
-  // ---------- 内蔵 語彙辞書（WordNet・類義語辞書・Wikipedia のつながりを模した最小網） ----------
-  // 関係: syn=類義 / hyper=上位 / hypo=下位 / assoc=連想 / deriv=派生
+  // ---------- 内蔵 語彙辞書 ----------
   var DICT = {
     "雨": [["水","assoc"],["雲","assoc"],["傘","assoc"],["梅雨","hyper"],["豪雨","hypo"],["涙","assoc"],["天気","hyper"],["湿気","assoc"]],
     "水": [["雨","assoc"],["海","assoc"],["川","hypo"],["氷","deriv"],["飲む","deriv"],["液体","hyper"],["湿気","assoc"]],
@@ -285,36 +284,34 @@
     "道": [["歩く","assoc"],["旅","assoc"],["進む","deriv"],["駅","assoc"]],
     "旅": [["道","assoc"],["電車","assoc"],["出発","assoc"],["思い出","assoc"]]
   };
+
   var REL_LABEL = {
     "syn": "類義 · SYN", "hyper": "上位 · HYPER", "hypo": "下位 · HYPO",
     "assoc": "連想 · ASSOC", "deriv": "派生 · DERIV"
   };
   var REL_FULL = { "syn": "synonym", "hyper": "hypernym", "hypo": "hyponym", "assoc": "association", "deriv": "derivation" };
 
-  // ---------- 起点の一文から語を取り出す ----------
-  var STOP_WORDS = ["こと","もの","ため","から","ので","です","ます","する","した","して","いる","ある","ない",
-    "よう","これ","それ","あれ","どう","なぜ","でも","しかし","そして","また","など","まで",
-    "より","だけ","ほど","という","として","について","によって","けど","が","を","に","は","の","と","で","も","へ","や"];
+  // ---------- 文章から辞書にあるキーを探す ----------
   function extractWords(text) {
-    var out = [];
-    function add(w) {
-      if (!w || STOP_WORDS.indexOf(w) >= 0 || out.indexOf(w) >= 0) return;
-      if (w.length === 1) {
-        if (!/[\u4E00-\u9FFF\u30A0-\u30FF]/.test(w)) return;      // 1文字は漢字・カタカナのみ
-      } else {
-        if (w.charAt(w.length - 1) === "っ") return;              // 活用の途中（降っ など）は除く
-        if (/^[\u3040-\u309F]+$/.test(w) && w.length < 4) return;  // ひらがなだけの短い語は助詞・語尾
+    var found = [];
+    var dictKeys = Object.keys(DICT);
+    
+    // 辞書にある単語が含まれているかスキャン（長語優先）
+    dictKeys.sort(function(a,b){ return b.length - a.length; });
+    for (var i = 0; i < dictKeys.length; i++) {
+      var k = dictKeys[i];
+      if (text.indexOf(k) !== -1 && found.indexOf(k) === -1) {
+        found.push(k);
       }
-      out.push(w);
     }
-    if (typeof Intl !== "undefined" && Intl.Segmenter) {
-      var it = new Intl.Segmenter("ja", { granularity: "word" }).segment(text)[Symbol.iterator]();
-      for (var r = it.next(); !r.done; r = it.next()) { if (r.value.isWordLike) add(r.value.segment); }
-    } else {
-      (text.match(/[\u4E00-\u9FFF\u30A0-\u30FFー]{2,}|[A-Za-z0-9]{2,}/g) || []).forEach(add);
+    
+    // 見つからない場合は辞書からランダムに起点となる語をいくつか選出
+    if (found.length === 0) {
+      var keys = Object.keys(DICT);
+      found.push(keys[Math.floor(Math.random() * keys.length)]);
+      found.push(keys[Math.floor(Math.random() * keys.length)]);
     }
-    if (!out.length) { var t = text.trim(); if (t) out.push(t); }
-    return out;
+    return found;
   }
 
   function normRel(r) {
@@ -328,13 +325,18 @@
 
   function expandFromDict(word) {
     var e = DICT[word];
-    if (!e) return [];
+    if (!e) {
+      // 辞書にない場合は全体の辞書からランダム抽出して繋げる
+      var keys = Object.keys(DICT);
+      var r = keys[Math.floor(Math.random() * keys.length)];
+      return [{ word: r, relation: "association" }];
+    }
     var out = [];
     for (var i = 0; i < e.length; i++) out.push({ word: e[i][0], relation: normRel(e[i][1]) });
     return out;
   }
 
-  async function expandWord(word, depth) {
+  async function expandWord(word) {
     return expandFromDict(word);
   }
 
@@ -344,9 +346,9 @@
     var n = 0, i;
     for (i = 0; i < word.length; i++) {
       var c = word.charCodeAt(i);
-      n += (c >= 0x2E80) ? 1 : 0.55;   // 全角は1、半角は0.55
+      n += (c >= 0x2E80) ? 1 : 0.55;
     }
-    return { w: Math.min(260, Math.max(64, Math.round(n * 17) + 14)), h: 26 };
+    return { w: Math.min(320, Math.max(64, Math.round(n * 17) + 14)), h: 26 };
   }
   function rectOf(n) {
     var s = estSize(n.word);
@@ -363,22 +365,6 @@
       }
       return false;
     }
-    function crosses(x, y) {
-      for (var pi = 0; pi < parents.length; pi++) {
-        var p = parents[pi];
-        var dx = x - p.x, dy = y - p.y, len = Math.hypot(dx, dy) || 1;
-        var steps = Math.ceil(len / 14);
-        for (var st = 1; st < steps; st++) {
-          var px = p.x + dx * st / steps, py = p.y + dy * st / steps;
-          for (var k = 0; k < nodes.length; k++) {
-            if (parents.indexOf(nodes[k]) >= 0) continue;
-            var r = rectOf(nodes[k]);
-            if (px > r.l - 4 && px < r.r + 4 && py > r.t - 4 && py < r.b + 4) return true;
-          }
-        }
-      }
-      return false;
-    }
     var start = Math.random() * Math.PI * 2;
     for (var ring = 0; ring < 70; ring++) {
       var dist = baseDist + ring * 28;
@@ -388,7 +374,6 @@
         var x = Math.round(anchor.x + Math.cos(ang) * dist);
         var y = Math.round(anchor.y + Math.sin(ang) * dist);
         if (hits(x, y)) continue;
-        if (ring < 7 && crosses(x, y)) continue;
         return { x: x, y: y };
       }
     }
@@ -565,7 +550,7 @@
     return "assoc";
   }
 
-  // ---------- loop : 幅優先で語を広げる ----------
+  // ---------- loop ----------
   var MAX_NODES = 140, MAX_DEPTH = 6;
   async function loop() {
     while (running) {
@@ -577,7 +562,7 @@
 
       setStatus("「" + node.word + "」から広げている…");
       var related;
-      try { related = await expandWord(node.word, node.depth); }
+      try { related = await expandWord(node.word); }
       catch (e) { await sleep(2000); continue; }
       if (!running) break;
 
@@ -608,10 +593,6 @@
     if (!text) return;
     seedText = text;
 
-    var seeds = extractWords(text);
-    var viable = seeds.filter(function (w) { return DICT[w]; });
-    if (viable.length) seeds = viable;
-
     genesisEl.style.opacity = "0";
     setTimeout(function () { genesisEl.style.display = "none"; }, 1200);
     viewport.style.display = "block";
@@ -621,15 +602,29 @@
     nodes = []; queue = []; seen = {}; idCounter = 0;
     stats = { elapsed: 0, nodes: 0, depth: 0 };
 
-    var totalW = (seeds.length - 1) * 240;
-    for (var i = 0; i < seeds.length; i++) {
-      var n = { id: ++idCounter, word: seeds[i], relation: "seed", relShort: "seed",
-                parentId: null, depth: 0, x: Math.round(i * 240 - totalW / 2), y: 0 };
-      nodes.push(n); seen[seeds[i]] = 1; queue.push(n.id);
-      createNodeEl(n);
+    // 1. 打った文章全文を「起点ノード (SEED)」として中央に生成
+    var seedNode = {
+      id: ++idCounter, word: text, relation: "seed", relShort: "seed",
+      parentId: null, depth: 0, x: 0, y: 0
+    };
+    nodes.push(seedNode);
+    seen[text] = 1;
+    createNodeEl(seedNode);
+
+    // 2. 文章から引き出せるキーワードを展開用キューに追加
+    var extractedWords = extractWords(text);
+    for (var i = 0; i < extractedWords.length; i++) {
+      var w = extractedWords[i];
+      if (!seen[w]) {
+        seen[w] = 1;
+        var subNode = addNode(w, "association", "assoc", seedNode.id, 1);
+        queue.push(subNode.id);
+      }
     }
+
     stats.nodes = nodes.length;
     renderHud();
+    renderLines();
     autoFit(nodes);
 
     try { if (navigator.wakeLock) navigator.wakeLock.request("screen"); } catch (e) {}
@@ -644,6 +639,7 @@
     }, 1000);
     loop();
   }
+
   sentenceEl.addEventListener("keydown", function (e) {
     if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); start(); }
   });
