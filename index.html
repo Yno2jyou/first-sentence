@@ -480,6 +480,7 @@
   }
 
   // ---------- 端末内蔵AI (Chrome Prompt API) ----------
+  var IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
   var wl = { engine: null };
   async function initWeb() {
     if (!navigator.gpu) throw new Error("nogpu");
@@ -489,7 +490,7 @@
     var m = await import("https://esm.run/@mlc-ai/web-llm");
     var have = m.prebuiltAppConfig.model_list.map(function (x) { return x.model_id; });
     var q = f16 ? "q4f16_1" : "q4f32_1";
-    var cands = ["Qwen2.5-1.5B-Instruct-" + q + "-MLC", "Qwen2.5-0.5B-Instruct-" + q + "-MLC"].filter(function (id) { return have.indexOf(id) >= 0; });
+    var cands = (IS_MOBILE ? ["Qwen2.5-0.5B-Instruct-" + q + "-MLC", "Qwen2.5-1.5B-Instruct-" + q + "-MLC"] : ["Qwen2.5-1.5B-Instruct-" + q + "-MLC", "Qwen2.5-0.5B-Instruct-" + q + "-MLC"]).filter(function (id) { return have.indexOf(id) >= 0; });
     if (!cands.length) throw new Error("nomodel");
     for (var i = 0; i < cands.length; i++) {
       try {
@@ -504,18 +505,19 @@
     throw new Error("loadfail");
   }
   async function callWeb(stage, attempt) {
-    var user = buildUser(stage, attempt, buildLimitedList(1400));
+    var user = buildUser(stage, attempt, buildLimitedList(IS_MOBILE ? 700 : 1400));
     var msgs = [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: user }];
     var r;
     try {
-      r = await wl.engine.chat.completions.create({ messages: msgs, temperature: 0.9, top_p: 0.95, max_tokens: 240, response_format: { type: "json_object" } });
+      if (IS_MOBILE) throw 0;
+      r = await wl.engine.chat.completions.create({ messages: msgs, temperature: 0.9, top_p: 0.95, max_tokens: IS_MOBILE ? 160 : 240, response_format: { type: "json_object" } });
     } catch (e) {
-      r = await wl.engine.chat.completions.create({ messages: msgs, temperature: 0.9, top_p: 0.95, max_tokens: 240 });
+      r = await wl.engine.chat.completions.create({ messages: msgs, temperature: 0.9, top_p: 0.95, max_tokens: IS_MOBILE ? 160 : 240 });
     }
     var c = r.choices[0].message.content || "";
     try { return JSON.parse(c); } catch (e) {
       var mm = c.match(/"thought"\s*:\s*"([^"]+)/);
-      return { thought: mm ? mm[1] : "" };
+      return { thought: mm ? mm[1] : c.replace(/```(json)?|[{}"]/g, "").replace(/^\s*thought\s*:/, "").trim() };
     }
   }
   async function initLocal() {
@@ -566,7 +568,7 @@
     }
   }
   async function resetLocal() {
-    if (wl.engine) { ctx.failures = 0; return; }
+    if (wl.engine) { try { await wl.engine.unload(); } catch (e) {} wl.engine = null; }
     try { if (local.base) local.base.destroy(); } catch (e) {}
     local.base = null;
     local.state = "idle";
@@ -939,8 +941,8 @@
 
   // ---------- loop : 正 → 反 → 合 → (合を新たな正へ) ----------
   var running = false;
-  async function loop() {
-    var stage = "THESE";
+  async function loop(startStage) {
+    var stage = startStage || "THESE";
     while (running) {
       if (!(await waitEngine())) break;
 
@@ -993,6 +995,7 @@
       renderLines();
       recomputeStats();
       latestId = thought.id;
+      saveSession();
       markLatest();
       autoFit(thoughts);
 
@@ -1054,6 +1057,7 @@
     if (phase !== "running") return;
     running = false;
     phase = "ended";
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
     recomputeStats();
     var lastS = lastOfType("SYNTHESE");
     var lastAny = thoughts.length > 1 ? thoughts[thoughts.length - 1] : null;
@@ -1103,6 +1107,59 @@
   window.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && phase === "running") endSession();
   });
+
+  // ---------- 自動保存・復元 (再読み込みされても続きから) ----------
+  var SAVE_KEY = "monolith.session";
+  function saveSession() {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        ts: Date.now(), elapsed: stats.elapsed, restores: 0,
+        thoughts: thoughts.map(function (t) {
+          return { text: t.text, type: t.type, parent_index: t.parent_index, parent2: t.parent2, level: t.level, x: t.x, y: t.y };
+        })
+      }));
+    } catch (e) {}
+  }
+  function restoreSession() {
+    var d = null;
+    try { d = JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch (e) {}
+    if (!d || !d.thoughts || !d.thoughts.length) return;
+    // 3分以上前のものや、復元しても進まず落ち続けるものは捨てる
+    if (Date.now() - d.ts > 180000 || (d.restores || 0) >= 3) { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} return; }
+    d.restores = (d.restores || 0) + 1;
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) {}
+
+    genesisEl.style.display = "none";
+    viewport.style.display = "block";
+    hudEl.style.display = "block";
+    escEl.style.display = "block";
+    d.thoughts.forEach(function (o, i) {
+      var t = { id: nextId(), index: i, text: o.text, type: o.type, parent_index: o.parent_index, parent2: o.parent2, level: o.level, x: o.x, y: o.y };
+      createNodeEl(t);
+      t.span.textContent = t.text; t.rest.textContent = "";
+      thoughts.push(t);
+      placeNodeEl(t);
+    });
+    var last = thoughts[thoughts.length - 1];
+    latestId = last.id;
+    markLatest(); renderLines(); autoFit(thoughts);
+    ctx.seedWords = extractWords(thoughts[0].text);
+    var st = last.type === "THESE" ? "ANTITHESE" : last.type === "ANTITHESE" ? "SYNTHESE" : "THESE";
+    if (st !== "THESE") ctx.thesis = lastOfType("THESE");
+    if (st === "SYNTHESE") ctx.anti = last;
+    phase = "running"; running = true;
+    startTs = Date.now() - (d.elapsed || 0) * 1000;
+    try { if (navigator.wakeLock) navigator.wakeLock.request("screen"); } catch (e) {}
+    recomputeStats();
+    setInterval(function () {
+      if (phase !== "running") return;
+      stats.elapsed = Math.floor((Date.now() - startTs) / 1000);
+      renderHud();
+    }, 1000);
+    if (!cfgReady()) initLocal();
+    loop(st);
+  }
+  restoreSession();
 
   // expose for quick inspection
   window.__monolith = { getThoughts: function () { return thoughts; } };
