@@ -213,14 +213,14 @@
     return { x: rx, y: ry, l: rx - width/2, r: rx + width/2, t: ry - height/2, b: ry + height/2 };
   }
 
-  // ---------- Canvas & 1:1ダイレクト操作（イージングなし） ----------
+  // ---------- Canvas & 操作（ズーム感度修正版） ----------
   var canvas = document.getElementById("canvas");
   var ctx = canvas.getContext("2d", { alpha: false });
   var dpr = window.devicePixelRatio || 1;
 
   var view = { x: 0, y: 0, scale: 0.8 };
   var dragging = false, lastMouse = { x: 0, y: 0 };
-  var userInteracted = 0;
+  var userInteracted = false; // 1度でも操作したら自動カメラ移動を止める
 
   function resizeCanvas() {
     canvas.width = window.innerWidth * dpr;
@@ -234,11 +234,13 @@
   view.x = window.innerWidth / 2;
   view.y = window.innerHeight / 2;
 
-  // マウスホイールによる瞬時拡大縮小（ダイレクトレスポンス）
+  // マウスホイールによるマイルドなズーム操作
   canvas.addEventListener("wheel", function (e) {
     e.preventDefault();
-    userInteracted = Date.now();
-    var factor = e.deltaY < 0 ? 1.15 : 0.85;
+    userInteracted = true; // 手動ズームが行われたら自動ズームを解除
+
+    // 感度を抑えた穏やかな拡大縮小率（1.05 / 0.95）
+    var factor = e.deltaY < 0 ? 1.05 : 0.95;
     var newScale = Math.max(0.015, Math.min(4.0, view.scale * factor));
     
     var mx = e.clientX, my = e.clientY;
@@ -255,7 +257,7 @@
     dragging = true;
     canvas.classList.add("dragging");
     lastMouse = { x: e.clientX, y: e.clientY };
-    userInteracted = Date.now();
+    userInteracted = true; // ドラッグ操作時も自動追従を解除
   });
 
   window.addEventListener("pointermove", function (e) {
@@ -314,7 +316,9 @@
   }
 
   function autoFit() {
-    if (!nodes.length || Date.now() - userInteracted < 4000) return;
+    // ユーザーが手動で一度でも操作（ドラッグ・ズーム）を行った場合は自動カメラ調整を行わない
+    if (!nodes.length || userInteracted) return;
+    
     var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     var step = nodes.length > 800 ? 5 : 1;
     for (var i = 0; i < nodes.length; i += step) {
@@ -331,7 +335,7 @@
     view.y = window.innerHeight / 2 - ((minY + maxY) / 2) * s;
   }
 
-  // ---------- 常に完全テキスト表示を行う描画ループ ----------
+  // ---------- 描画ループ ----------
   function render() {
     var theme = THEME[currentPhase];
     ctx.save();
@@ -346,7 +350,7 @@
       ctx.translate(view.x, view.y);
       ctx.scale(view.scale, view.scale);
 
-      // カリング計算（画面外のノード処理を省略して高フレームレートを維持）
+      // カリング計算（画面外省略で高速化）
       var screenL = -view.x / view.scale - 100;
       var screenR = (window.innerWidth - view.x) / view.scale + 100;
       var screenT = -view.y / view.scale - 100;
@@ -370,7 +374,7 @@
       }
       ctx.stroke();
 
-      // 2. すべてのノードで文字とタグを常にそのまま描画（LOD省略なし）
+      // 2. すべてのノードの完全描画
       for (var j = 0; j < nodes.length; j++) {
         var node = nodes[j];
         if (node.x < screenL || node.x > screenR || node.y < screenT || node.y > screenB) continue;
@@ -420,7 +424,7 @@
   }
   requestAnimationFrame(render);
 
-  // ---------- 宇宙生成ループ (数千語対応) ----------
+  // ---------- 宇宙生成ループ ----------
   var MAX_NODES = 3000, MAX_DEPTH = 15;
 
   async function loop() {
@@ -477,6 +481,7 @@
 
     nodes = []; queue = []; seen = {}; idCounter = 0;
     stats = { elapsed: 0, nodes: 0, depth: 0 };
+    userInteracted = false; // 新規開始時にリセット
 
     var seedNode = addNode(text, "seed", null, 0);
     seen[text] = 1;
