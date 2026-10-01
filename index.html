@@ -6,7 +6,7 @@
 <title>FIRST SENTENCE</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; overflow: hidden; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
   body {
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -14,110 +14,73 @@
 
   #root {
     position: fixed; inset: 0;
-    transition: background-color 60s linear, color 60s linear;
-    --conn: #c8c8c8;
+    transition: background-color 2s ease, color 2s ease;
   }
-  #root.day  { background-color: #ffffff; color: #000000; --conn: #c8c8c8; --c-seed: #111111; --c-syn: #15803d; --c-hyper: #1d4ed8; --c-hypo: #d62828; --c-assoc: #b45309; --c-deriv: #7c3aed; }
-  #root.night{ background-color: #000000; color: #ffffff; --conn: #3a3a3a; --c-seed: #ffffff; --c-syn: #4fd18b; --c-hyper: #6aa5ff; --c-hypo: #ff6b6b; --c-assoc: #fbbf24; --c-deriv: #c4b5fd; }
+  #root.day  { background-color: #ffffff; color: #111111; }
+  #root.night{ background-color: #050505; color: #eeeeee; }
 
-  /* Genesis */
+  /* Canvas */
+  #canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+  #canvas.dragging { cursor: grabbing; }
+
+  /* Genesis UI */
   #genesis {
     position: fixed; inset: 0;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 64px;
-    transition: opacity 1.2s ease;
+    gap: 64px; transition: opacity 0.8s ease; z-index: 10; pointer-events: auto;
   }
   .genesis-title { font-size: 22px; letter-spacing: 0.34em; text-transform: uppercase; font-weight: 400; }
   .genesis-field { display: flex; flex-direction: column; align-items: center; gap: 16px; width: 100%; }
   .genesis-input {
-    width: min(560px, 80vw);
-    background: transparent; border: none; border-bottom: 1px solid;
+    width: min(560px, 80vw); background: transparent; border: none; border-bottom: 1px solid;
     outline: none; padding: 8px 4px; font-size: 18px; letter-spacing: 0.02em;
     color: inherit; text-align: center; border-radius: 0;
   }
-  #root.day .genesis-input   { border-bottom-color: rgba(0,0,0,0.18); }
-  #root.night .genesis-input { border-bottom-color: rgba(255,255,255,0.22); }
-  .genesis-input::placeholder { color: transparent; }
+  #root.day .genesis-input   { border-bottom-color: rgba(0,0,0,0.2); }
+  #root.night .genesis-input { border-bottom-color: rgba(255,255,255,0.3); }
   .genesis-hint { font-size: 10px; letter-spacing: 0.22em; opacity: 0.3; text-transform: uppercase; }
 
-  /* Thought world */
-  #viewport { position: fixed; inset: 0; overflow: hidden; cursor: grab; touch-action: none; }
-  #viewport.dragging { cursor: grabbing; }
-  #world { position: absolute; left: 0; top: 0; width: 0; height: 0; overflow: visible; transform-origin: 0 0; }
-  #world.smooth { transition: transform 1.4s cubic-bezier(0.22,1,0.36,1); }
-  #lines { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
-  .thought-line { stroke: var(--conn); stroke-width: 1; opacity: 0.35; fill: none; }
-  .thought-line.r-syn   { stroke: var(--c-syn);   opacity: 0.45; }
-  .thought-line.r-hyper { stroke: var(--c-hyper); opacity: 0.45; }
-  .thought-line.r-hypo  { stroke: var(--c-hypo);  opacity: 0.45; stroke-dasharray: 2 6; }
-  .thought-line.r-assoc { stroke: var(--c-assoc); opacity: 0.4; }
-  .thought-line.r-deriv { stroke: var(--c-deriv); opacity: 0.45; }
-
-  .thought-node {
-    position: absolute; transform: translate(-50%, -50%);
-    width: max-content; max-width: 320px; min-width: 3em; padding: 3px 6px;
-    text-align: center; font-size: 14px; line-height: 1.5; letter-spacing: 0.02em;
-    white-space: normal; word-break: break-all;
-    opacity: 0; animation: node-in 0.8s ease forwards;
-  }
-  .thought-node.seed { white-space: normal; max-width: 450px; font-weight: 700; border-bottom: 2px solid currentColor; padding-bottom: 6px; font-size: 18px; }
-  .thought-node[data-relation="synonym"]     { color: var(--c-syn); }
-  .thought-node[data-relation="hypernym"]    { color: var(--c-hyper); font-weight: 700; }
-  .thought-node[data-relation="hyponym"]     { color: var(--c-hypo);  font-style: italic; }
-  .thought-node[data-relation="association"] { color: var(--c-assoc); }
-  .thought-node[data-relation="derivation"]  { color: var(--c-deriv); text-decoration: underline; text-underline-offset: 3px; }
-  .node-tag {
-    position: absolute; left: 50%; top: -1.6em; transform: translateX(-50%);
-    white-space: nowrap; font-size: 8px; letter-spacing: 0.18em; opacity: 0.65; pointer-events: none;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  }
-  @keyframes node-in {
-    from { opacity: 0; transform: translate(-50%,-50%) scale(0.5); }
-    to   { opacity: 0.9; transform: translate(-50%,-50%) scale(1); }
-  }
-
-  #status {
-    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
-    font-size: 10px; letter-spacing: 0.14em; opacity: 0.55; text-align: center; max-width: 80vw;
-    pointer-events: none; user-select: none; z-index: 40;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  }
+  /* Overlay UI */
   #hud {
     position: fixed; right: 22px; bottom: 20px;
     font-size: 10px; line-height: 1.9; letter-spacing: 0.1em; opacity: 0.7;
-    text-align: right; pointer-events: none; user-select: none;
+    text-align: right; pointer-events: none; user-select: none; z-index: 20;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
   #esc-hint {
     position: fixed; left: 22px; bottom: 20px;
-    font-size: 10px; letter-spacing: 0.22em; opacity: 0.22; text-transform: uppercase;
-    pointer-events: auto; cursor: pointer; padding: 8px;
+    font-size: 10px; letter-spacing: 0.22em; opacity: 0.3; text-transform: uppercase;
+    pointer-events: auto; cursor: pointer; padding: 8px; z-index: 20;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  #status {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+    font-size: 10px; letter-spacing: 0.14em; opacity: 0.6; text-align: center;
+    pointer-events: none; z-index: 20;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
 
-  /* Final log */
+  /* Final Log */
   #final {
-    position: fixed; inset: 0; overflow-y: auto;
+    position: fixed; inset: 0; overflow-y: auto; z-index: 30;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 24px; text-align: center;
+    padding: 24px; text-align: center; background: inherit;
   }
   #final .meta {
-    font-size: 11px; line-height: 2.2; letter-spacing: 0.14em; opacity: 0.6;
+    font-size: 11px; line-height: 2.2; letter-spacing: 0.14em; opacity: 0.7;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
   #final .top-link {
-    margin-top: 3em;
-    font-size: 11px; letter-spacing: 0.22em; opacity: 0.5;
+    margin-top: 3em; font-size: 11px; letter-spacing: 0.22em; opacity: 0.5;
     text-transform: uppercase; text-decoration: none; color: inherit; cursor: pointer;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.3s;
   }
   #final .top-link:hover { opacity: 1; }
 </style>
 </head>
 <body>
 <div id="root" class="day">
-  <!-- Genesis -->
   <div id="genesis">
     <div class="genesis-title">FIRST SENTENCE</div>
     <div class="genesis-field">
@@ -126,19 +89,11 @@
     </div>
   </div>
 
-  <!-- Thought world -->
-  <div id="viewport" style="display:none">
-    <div id="world">
-      <svg id="lines" xmlns="http://www.w3.org/2000/svg"></svg>
-    </div>
-  </div>
+  <canvas id="canvas"></canvas>
 
-  <!-- HUD -->
   <div id="hud" style="display:none"></div>
   <div id="esc-hint" style="display:none">esc · 終了</div>
   <div id="status" style="display:none"></div>
-
-  <!-- Final log -->
   <div id="final" style="display:none"></div>
 </div>
 
@@ -146,192 +101,175 @@
 (function () {
   "use strict";
 
-  function computePhase() {
+  // テーマ色設定
+  var THEME = {
+    day: {
+      bg: "#ffffff", line: "rgba(180,180,180,0.35)", text: "#111111",
+      syn: "#15803d", hyper: "#1d4ed8", hypo: "#d62828", assoc: "#b45309", deriv: "#7c3aed"
+    },
+    night: {
+      bg: "#050505", line: "rgba(70,70,70,0.45)", text: "#ffffff",
+      syn: "#4fd18b", hyper: "#6aa5ff", hypo: "#ff6b6b", assoc: "#fbbf24", deriv: "#c4b5fd"
+    }
+  };
+
+  function getPhase() {
     var h = new Date().getHours();
     return (h >= 6 && h < 18) ? "day" : "night";
   }
+  
+  var currentPhase = getPhase();
   var root = document.getElementById("root");
-  function applyTheme() {
-    root.classList.remove("day", "night");
-    root.classList.add(computePhase());
-  }
-  applyTheme();
-  setInterval(applyTheme, 60000);
+  root.className = currentPhase;
 
-  // ---------- 大規模対応辞書データベース ----------
+  // 語彙辞書データベース
   var DICT = {
     "雨": [["水","assoc"],["雲","assoc"],["傘","assoc"],["梅雨","hyper"],["豪雨","hypo"],["涙","assoc"],["天気","hyper"],["湿気","assoc"],["雫","assoc"],["虹","assoc"]],
     "水": [["雨","assoc"],["海","assoc"],["川","hypo"],["氷","deriv"],["液体","hyper"],["湿気","assoc"],["蒸気","assoc"],["生命","assoc"]],
     "雲": [["空","assoc"],["雨","assoc"],["天気","hyper"],["白","assoc"],["霧","assoc"],["積乱雲","hypo"],["風","assoc"]],
     "傘": [["雨","assoc"],["開く","deriv"],["閉じる","deriv"],["日傘","hypo"],["雨宿り","assoc"],["濡れる","assoc"]],
-    "梅雨": [["雨","hyper"],["湿気","assoc"],["長雨","assoc"],["紫陽花","assoc"],["六月","assoc"]],
-    "豪雨": [["雨","hyper"],["洪水","assoc"],["川","assoc"],["災害","assoc"],["嵐","syn"]],
-    "涙": [["悲しい","assoc"],["泣く","deriv"],["感情","hyper"],["瞳","assoc"],["喜び","assoc"],["溢れる","deriv"]],
-    "悲しい": [["涙","assoc"],["悲しみ","deriv"],["感情","hyper"],["寂しい","syn"],["切ない","syn"],["愛","assoc"]],
-    "駅": [["電車","assoc"],["別れ","assoc"],["出発","assoc"],["旅","assoc"],["ホーム","assoc"],["線路","assoc"]],
-    "電車": [["駅","assoc"],["線路","assoc"],["乗る","deriv"],["速度","assoc"],["都市","assoc"]],
     "宇宙": [["星","assoc"],["時間","assoc"],["空間","assoc"],["銀河","assoc"],["無限","assoc"],["闇","assoc"],["光","assoc"],["重力","assoc"]],
     "星": [["空","assoc"],["宇宙","assoc"],["光","assoc"],["夜","assoc"],["銀河","assoc"],["星座","hypo"],["輝く","deriv"]],
     "時間": [["宇宙","assoc"],["時計","assoc"],["過去","assoc"],["未来","assoc"],["流れる","deriv"],["刹那","hypo"],["永遠","assoc"]],
     "心": [["感情","assoc"],["人間","assoc"],["愛","assoc"],["言葉","assoc"],["思考","assoc"],["魂","syn"],["記憶","assoc"]],
-    "言葉": [["声","assoc"],["文字","assoc"],["人間","assoc"],["意味","assoc"],["話す","deriv"],["詩","hypo"],["哲学","assoc"]],
-    "海": [["水","assoc"],["波","assoc"],["青","assoc"],["深海","hypo"],["地平線","assoc"],["生命","assoc"]],
-    "光": [["太陽","assoc"],["明るい","assoc"],["影","assoc"],["星","assoc"],["波長","assoc"],["希望","assoc"]],
-    "生命": [["死","assoc"],["生物","hypo"],["命","syn"],["進化","deriv"],["遺伝子","assoc"],["地球","assoc"]]
+    "言葉": [["声","assoc"],["文字","assoc"],["人間","assoc"],["意味","assoc"],["話す","deriv"],["詩","hypo"],["哲学","assoc"]]
   };
 
-  var REL_LABEL = { "syn": "類義", "hyper": "上位", "hypo": "下位", "assoc": "連想", "deriv": "派生" };
-  var REL_FULL = { "syn": "synonym", "hyper": "hypernym", "hypo": "hyponym", "assoc": "association", "deriv": "derivation" };
-
+  var REL_TAG = { "syn": "類義", "hyper": "上位", "hypo": "下位", "assoc": "連想", "deriv": "派生", "seed": "起点" };
   var PREFIXES = ["大", "新", "微", "超", "古", "真", "深", "幻", "聖"];
   var SUFFIXES = ["学", "感", "性", "体", "界", "観", "論", "象", "圏", "律"];
-  var MODIFIERS = ["静かな", "広大な", "目に見えぬ", "果てしない", "密かな", "重なり合う", "揺れる"];
+  var MODIFIERS = ["静かな", "広大な", "目に見えぬ", "果てしない", "密かな", "揺れる"];
 
-  function normRel(r) {
-    r = String(r || "").toLowerCase();
-    if (r === "synonym" || r === "syn") return "synonym";
-    if (r === "hypernym" || r === "hyper") return "hypernym";
-    if (r === "hyponym" || r === "hypo") return "hyponym";
-    if (r === "derivation" || r === "deriv") return "derivation";
-    return "association";
-  }
-
-  // 大規模展開用に動的語彙生成を行う拡張ロジック
   function expandWord(word) {
     var out = [];
     if (DICT[word]) {
       var e = DICT[word];
-      for (var i = 0; i < e.length; i++) out.push({ word: e[i][0], relation: normRel(e[i][1]) });
+      for (var i = 0; i < e.length; i++) out.push({ word: e[i][0], rel: e[i][1] });
     }
-    
-    // 辞書語彙が足りない、または無限展開するための動的生成メカニズム
     if (out.length < 5) {
       var keys = Object.keys(DICT);
-      var p1 = PREFIXES[Math.floor(Math.random() * PREFIXES.length)];
-      var s1 = SUFFIXES[Math.floor(Math.random() * SUFFIXES.length)];
-      var m1 = MODIFIERS[Math.floor(Math.random() * MODIFIERS.length)];
-      var randKey = keys[Math.floor(Math.random() * keys.length)];
+      var p = PREFIXES[Math.floor(Math.random() * PREFIXES.length)];
+      var s = SUFFIXES[Math.floor(Math.random() * SUFFIXES.length)];
+      var m = MODIFIERS[Math.floor(Math.random() * MODIFIERS.length)];
+      var rKey = keys[Math.floor(Math.random() * keys.length)];
 
-      out.push({ word: p1 + word, relation: "derivation" });
-      out.push({ word: word + s1, relation: "hypernym" });
-      out.push({ word: m1 + word, relation: "association" });
-      out.push({ word: randKey, relation: "association" });
+      out.push({ word: p + word, rel: "deriv" });
+      out.push({ word: word + s, rel: "hyper" });
+      out.push({ word: m + word, rel: "assoc" });
+      out.push({ word: rKey, rel: "assoc" });
     }
     return out;
   }
 
   function extractWords(text) {
-    var found = [];
-    var dictKeys = Object.keys(DICT);
-    for (var i = 0; i < dictKeys.length; i++) {
-      if (text.indexOf(dictKeys[i]) !== -1) found.push(dictKeys[i]);
+    var found = [], keys = Object.keys(DICT);
+    for (var i = 0; i < keys.length; i++) {
+      if (text.indexOf(keys[i]) !== -1) found.push(keys[i]);
     }
-    if (found.length === 0) {
-      // 簡易単語分割
+    if (!found.length) {
       var parts = text.split(/[\s、。！？!?,.]+/).filter(Boolean);
-      for (var j = 0; j < parts.length; j++) {
-        if (parts[j].length <= 8) found.push(parts[j]);
-      }
+      for (var j = 0; j < parts.length; j++) if (parts[j].length <= 8) found.push(parts[j]);
     }
-    if (found.length === 0) found.push(text.slice(0, 4));
+    if (!found.length) found.push(text.slice(0, 4));
     return found;
   }
 
-  // ---------- レイアウト (数千ノード対応) ----------
-  var TAG_H = 14, GAP = 15;
-  function estSize(word) {
-    var n = 0;
-    for (var i = 0; i < word.length; i++) n += (word.charCodeAt(i) >= 0x2E80) ? 1 : 0.55;
-    return { w: Math.min(320, Math.max(50, Math.round(n * 15) + 12)), h: 22 };
+  // ---------- 高速衝突判定 ＆ 位置決定 ----------
+  var GAP = 25;
+  function estWidth(word, isSeed) {
+    var len = 0;
+    for (var i = 0; i < word.length; i++) len += word.charCodeAt(i) >= 0x2E80 ? 1 : 0.6;
+    return len * (isSeed ? 18 : 14) + 16;
   }
-  function rectOf(n) {
-    var s = estSize(n.word);
-    return { l: n.x - s.w / 2, r: n.x + s.w / 2, t: n.y - s.h / 2 - TAG_H, b: n.y + s.h / 2 };
-  }
-  function positionNode(anchor, baseDist, nodes, size) {
-    var W = size.w;
-    function rectAt(x, y) { return { l: x - W / 2, r: x + W / 2, t: y - size.h / 2 - TAG_H, b: y + size.h / 2 }; }
-    function hits(x, y) {
-      var a = rectAt(x, y);
-      // 数千ノード処理のため直近ノード群を中心に探索最適化
-      var startIdx = Math.max(0, nodes.length - 400);
-      for (var k = startIdx; k < nodes.length; k++) {
-        var b = rectOf(nodes[k]);
-        if (!(a.r + GAP <= b.l || b.r + GAP <= a.l || a.b + GAP <= b.t || b.b + GAP <= a.t)) return true;
-      }
-      return false;
-    }
-    var start = Math.random() * Math.PI * 2;
-    for (var ring = 0; ring < 100; ring++) {
-      var dist = baseDist + ring * 22;
-      var n = 24 + ring * 3;
-      for (var i = 0; i < n; i++) {
-        var ang = start + (i / n) * Math.PI * 2;
+
+  function positionNode(anchor, baseDist, nodes, width, height) {
+    var startAng = Math.random() * Math.PI * 2;
+    // 重複判定を直近ノードのみに絞って超高速化
+    var checkStart = Math.max(0, nodes.length - 250);
+    
+    for (var ring = 0; ring < 60; ring++) {
+      var dist = baseDist + ring * 28;
+      var steps = 16 + ring * 3;
+      for (var i = 0; i < steps; i++) {
+        var ang = startAng + (i / steps) * Math.PI * 2;
         var x = Math.round(anchor.x + Math.cos(ang) * dist);
         var y = Math.round(anchor.y + Math.sin(ang) * dist);
-        if (!hits(x, y)) return { x: x, y: y };
+
+        var nl = x - width / 2, nr = x + width / 2;
+        var nt = y - height / 2, nb = y + height / 2;
+
+        var collide = false;
+        for (var k = checkStart; k < nodes.length; k++) {
+          var o = nodes[k];
+          if (!(nr + GAP <= o.l || o.r + GAP <= nl || nb + GAP <= o.t || o.b + GAP <= nt)) {
+            collide = true;
+            break;
+          }
+        }
+        if (!collide) return { x: x, y: y, l: nl, r: nr, t: nt, b: nb };
       }
     }
-    return { x: anchor.x + (Math.random() - 0.5) * 1000, y: anchor.y + (Math.random() - 0.5) * 1000 };
+    var rx = anchor.x + (Math.random() - 0.5) * 800;
+    var ry = anchor.y + (Math.random() - 0.5) * 800;
+    return { x: rx, y: ry, l: rx - width/2, r: rx + width/2, t: ry - height/2, b: ry + height/2 };
   }
 
-  // ---------- Viewport ----------
-  var viewport = document.getElementById("viewport");
-  var world = document.getElementById("world");
-  var linesSvg = document.getElementById("lines");
-  var view = { scale: 0.8, tx: window.innerWidth / 2, ty: window.innerHeight / 2 };
+  // ---------- Canvas & 慣性ビュー制御 ----------
+  var canvas = document.getElementById("canvas");
+  var ctx = canvas.getContext("2d", { alpha: false });
+  var dpr = window.devicePixelRatio || 1;
+
+  var view = { x: 0, y: 0, scale: 0.8 };
+  var targetView = { x: 0, y: 0, scale: 0.8 };
+  var dragging = false, lastMouse = { x: 0, y: 0 };
   var userInteracted = 0;
-  var dragging = false, lastDrag = null;
 
-  function applyTransform(smooth) {
-    world.classList.toggle("smooth", !!smooth);
-    world.style.transform = "translate(" + view.tx + "px," + view.ty + "px) scale(" + view.scale + ")";
+  function resizeCanvas() {
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    canvas.style.width = window.innerWidth + "px";
+    canvas.style.height = window.innerHeight + "px";
   }
+  window.addEventListener("resize", resizeCanvas);
+  resizeCanvas();
 
-  function autoFit(nodes) {
-    if (!nodes.length || Date.now() - userInteracted < 5000) return;
-    var pad = 200;
-    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    var step = nodes.length > 500 ? 5 : 1;
-    for (var i = 0; i < nodes.length; i += step) {
-      minX = Math.min(minX, nodes[i].x); minY = Math.min(minY, nodes[i].y);
-      maxX = Math.max(maxX, nodes[i].x); maxY = Math.max(maxY, nodes[i].y);
-    }
-    var w = Math.max(maxX - minX, 100), h = Math.max(maxY - minY, 100);
-    var scale = Math.min((window.innerWidth - pad) / w, (window.innerHeight - pad) / h, 1);
-    scale = Math.max(scale, 0.08); // 広大な宇宙全体を見渡せる超広角に対応
-    var cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
-    view.scale = scale;
-    view.tx = window.innerWidth / 2 - cx * scale;
-    view.ty = window.innerHeight / 2 - cy * scale;
-    applyTransform(true);
-  }
+  targetView.x = window.innerWidth / 2;
+  targetView.y = window.innerHeight / 2;
+  view.x = targetView.x; view.y = targetView.y;
 
-  viewport.addEventListener("wheel", function (e) {
+  canvas.addEventListener("wheel", function (e) {
     e.preventDefault();
     userInteracted = Date.now();
-    var factor = e.deltaY < 0 ? 1.15 : 0.85;
-    var newScale = Math.max(0.02, Math.min(3.0, view.scale * factor));
-    var rect = viewport.getBoundingClientRect();
-    var mx = e.clientX - rect.left, my = e.clientY - rect.top;
-    var wx = (mx - view.tx) / view.scale, wy = (my - view.ty) / view.scale;
-    view.scale = newScale; view.tx = mx - wx * newScale; view.ty = my - wy * newScale;
-    applyTransform(false);
+    var factor = e.deltaY < 0 ? 1.18 : 0.82;
+    var newScale = Math.max(0.015, Math.min(4.0, targetView.scale * factor));
+    
+    var mx = e.clientX, my = e.clientY;
+    var wx = (mx - targetView.x) / targetView.scale;
+    var wy = (my - targetView.y) / targetView.scale;
+
+    targetView.scale = newScale;
+    targetView.x = mx - wx * newScale;
+    targetView.y = my - wy * newScale;
   }, { passive: false });
 
-  viewport.addEventListener("pointerdown", function (e) {
-    dragging = true; viewport.classList.add("dragging"); lastDrag = { x: e.clientX, y: e.clientY };
+  canvas.addEventListener("pointerdown", function (e) {
+    dragging = true;
+    canvas.classList.add("dragging");
+    lastMouse = { x: e.clientX, y: e.clientY };
     userInteracted = Date.now();
   });
-  viewport.addEventListener("pointermove", function (e) {
+
+  window.addEventListener("pointermove", function (e) {
     if (!dragging) return;
-    view.tx += e.clientX - lastDrag.x; view.ty += e.clientY - lastDrag.y;
-    lastDrag = { x: e.clientX, y: e.clientY };
-    applyTransform(false);
+    var dx = e.clientX - lastMouse.x;
+    var dy = e.clientY - lastMouse.y;
+    targetView.x += dx;
+    targetView.y += dy;
+    lastMouse = { x: e.clientX, y: e.clientY };
   });
-  function endDrag() { dragging = false; viewport.classList.remove("dragging"); }
-  viewport.addEventListener("pointerup", endDrag);
-  viewport.addEventListener("pointerleave", endDrag);
+
+  function endDrag() { dragging = false; canvas.classList.remove("dragging"); }
+  window.addEventListener("pointerup", endDrag);
 
   // ---------- State ----------
   var nodes = [];
@@ -341,56 +279,201 @@
   var running = false;
   var idCounter = 0;
   var startTs = 0;
-  var stats = { elapsed: 0, nodes: 0, depth: 0 };
   var seedText = "";
+  var stats = { elapsed: 0, nodes: 0, depth: 0 };
 
   var genesisEl = document.getElementById("genesis");
   var sentenceEl = document.getElementById("sentence");
   var hudEl = document.getElementById("hud");
   var escEl = document.getElementById("esc-hint");
-  var finalEl = document.getElementById("final");
   var statusEl = document.getElementById("status");
+  var finalEl = document.getElementById("final");
 
   function setStatus(msg) { statusEl.textContent = msg || ""; statusEl.style.display = msg ? "block" : "none"; }
-  function nodeById(id) { return nodes[id - 1] || null; }
 
-  function createNodeEl(node) {
-    var el = document.createElement("div");
-    el.className = "thought-node" + (node.relation === "seed" ? " seed" : "");
-    el.setAttribute("data-relation", node.relation);
-    var tag = document.createElement("span");
-    tag.className = "node-tag";
-    tag.textContent = node.relation === "seed" ? "起点" : (REL_LABEL[node.relShort] || "");
-    el.appendChild(tag);
-    el.appendChild(document.createTextNode(node.word));
-    el.style.left = node.x + "px";
-    el.style.top = node.y + "px";
-    world.appendChild(el);
-    node.el = el;
-  }
-
-  function renderLine(p, n) {
-    var mx = (p.x + n.x) / 2 + (n.y - p.y) * 0.15;
-    var my = (p.y + n.y) / 2 - (n.x - p.x) * 0.15;
-    var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("class", "thought-line r-" + n.relShort);
-    path.setAttribute("d", "M " + p.x + " " + p.y + " Q " + mx + " " + my + " " + n.x + " " + n.y);
-    linesSvg.appendChild(path);
-  }
-
-  function addNode(word, relation, relShort, parentId, depth) {
+  function addNode(word, rel, parentId, depth) {
     var id = ++idCounter;
-    var parent = parentId != null ? nodeById(parentId) : null;
-    var node = { id: id, word: word, relation: REL_FULL[relShort] || "association", relShort: relShort,
-                 parentId: parentId, depth: depth, x: 0, y: 0 };
+    var isSeed = (rel === "seed");
+    var w = estWidth(word, isSeed);
+    var h = isSeed ? 32 : 24;
+
+    var parent = parentId ? nodes[parentId - 1] : null;
+    var pos;
     if (parent) {
-      var pos = positionNode(parent, 150 + Math.min(depth, 10) * 12, nodes, estSize(word));
-      node.x = pos.x; node.y = pos.y;
-      renderLine(parent, node);
+      pos = positionNode(parent, 140 + Math.min(depth, 10) * 10, nodes, w, h);
+    } else {
+      pos = { x: 0, y: 0, l: -w/2, r: w/2, t: -h/2, b: h/2 };
     }
+
+    var node = {
+      id: id, word: word, rel: rel, parentId: parentId, depth: depth,
+      x: pos.x, y: pos.y, l: pos.l, r: pos.r, t: pos.t, b: pos.b,
+      w: w, h: h, alpha: 0
+    };
     nodes.push(node);
-    createNodeEl(node);
     return node;
+  }
+
+  function autoFit() {
+    if (!nodes.length || Date.now() - userInteracted < 4000) return;
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    var step = nodes.length > 800 ? 5 : 1;
+    for (var i = 0; i < nodes.length; i += step) {
+      minX = Math.min(minX, nodes[i].x); minY = Math.min(minY, nodes[i].y);
+      maxX = Math.max(maxX, nodes[i].x); maxY = Math.max(maxY, nodes[i].y);
+    }
+    var bw = Math.max(maxX - minX, 200), bh = Math.max(maxY - minY, 200);
+    var pad = 160;
+    var s = Math.min((window.innerWidth - pad) / bw, (window.innerHeight - pad) / bh);
+    s = Math.max(0.02, Math.min(s, 1.1));
+
+    targetView.scale = s;
+    targetView.x = window.innerWidth / 2 - ((minX + maxX) / 2) * s;
+    targetView.y = window.innerHeight / 2 - ((minY + maxY) / 2) * s;
+  }
+
+  // ---------- メイン描画ループ (60FPS 高速Canvasレンダリング) ----------
+  function render() {
+    // 慣性補間 (平滑な滑らかさ)
+    view.x += (targetView.x - view.x) * 0.12;
+    view.y += (targetView.y - view.y) * 0.12;
+    view.scale += (targetView.scale - view.scale) * 0.12;
+
+    var theme = THEME[currentPhase];
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
+    // 背景クリア
+    ctx.fillStyle = theme.bg;
+    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+    if (phase === "running" || phase === "ended") {
+      ctx.save();
+      ctx.translate(view.x, view.y);
+      ctx.scale(view.scale, view.scale);
+
+      // カリング計算用（画面内に入っている領域のみ描画）
+      var screenL = -view.x / view.scale - 100;
+      var screenR = (window.innerWidth - view.x) / view.scale + 100;
+      var screenT = -view.y / view.scale - 100;
+      var screenB = (window.innerHeight - view.y) / view.scale + 100;
+
+      // 1. 接続線（リンク）描画
+      ctx.lineWidth = 1 / view.scale;
+      ctx.strokeStyle = theme.line;
+      ctx.beginPath();
+      for (var i = 1; i < nodes.length; i++) {
+        var n = nodes[i];
+        var p = nodes[n.parentId - 1];
+        if (!p) continue;
+        // 画面外の線をカリング
+        if ((n.x < screenL && p.x < screenL) || (n.x > screenR && p.x > screenR) ||
+            (n.y < screenT && p.y < screenT) || (n.y > screenB && p.y > screenB)) continue;
+
+        var mx = (p.x + n.x) / 2 + (n.y - p.y) * 0.15;
+        var my = (p.y + n.y) / 2 - (n.x - p.x) * 0.15;
+        ctx.moveTo(p.x, p.y);
+        ctx.quadraticCurveTo(mx, my, n.x, n.y);
+      }
+      ctx.stroke();
+
+      // 2. ノード描画 (LOD制御)
+      var lodLevel = view.scale; // 拡大度合いに応じて詳細度を変更
+
+      for (var j = 0; j < nodes.length; j++) {
+        var node = nodes[j];
+        if (node.x < screenL || node.x > screenR || node.y < screenT || node.y > screenB) continue;
+
+        if (node.alpha < 1) node.alpha = Math.min(1, node.alpha + 0.08);
+
+        ctx.save();
+        ctx.translate(node.x, node.y);
+        ctx.globalAlpha = node.alpha;
+
+        var color = theme[node.rel] || theme.text;
+
+        // 超広域（ズームアウト）時は文字を省略して点描画し高速化
+        if (lodLevel < 0.15 && node.rel !== "seed") {
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.arc(0, 0, 4 / lodLevel, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // テキストとタグの描画
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+
+          if (node.rel === "seed") {
+            ctx.font = "bold 18px sans-serif";
+            ctx.fillStyle = theme.text;
+            ctx.fillText(node.word, 0, 0);
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = theme.text;
+            ctx.beginPath();
+            ctx.moveTo(-node.w / 2, 14);
+            ctx.lineTo(node.w / 2, 14);
+            ctx.stroke();
+          } else {
+            // タグ (類義, 上位, 下位 等)
+            if (lodLevel > 0.4) {
+              ctx.font = "9px monospace";
+              ctx.fillStyle = color;
+              ctx.globalAlpha = node.alpha * 0.65;
+              ctx.fillText(REL_TAG[node.rel] || "", 0, -14);
+              ctx.globalAlpha = node.alpha;
+            }
+            // 単語本体
+            ctx.font = (node.rel === "hyper" ? "bold " : "") + (node.rel === "hypo" ? "italic " : "") + "14px sans-serif";
+            ctx.fillStyle = color;
+            ctx.fillText(node.word, 0, 0);
+          }
+        }
+        ctx.restore();
+      }
+
+      ctx.restore();
+    }
+
+    ctx.restore();
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
+
+  // ---------- 宇宙生成ループ (数千語対応) ----------
+  var MAX_NODES = 3000, MAX_DEPTH = 15;
+
+  async function loop() {
+    while (running) {
+      if (nodes.length >= MAX_NODES) { setStatus("大規模言語宇宙完成 · esc で終了"); break; }
+      var nextId = queue.shift();
+      if (nextId == null) { setStatus("展開完了 · esc で終了"); break; }
+      var node = nodes[nextId - 1];
+      if (!node || node.depth >= MAX_DEPTH) continue;
+
+      var related = expandWord(node.word);
+      var added = 0;
+      for (var i = 0; i < related.length && nodes.length < MAX_NODES; i++) {
+        var item = related[i];
+        if (!item.word || seen[item.word]) continue;
+        seen[item.word] = 1;
+        var newNode = addNode(item.word, item.rel, node.id, node.depth + 1);
+        queue.push(newNode.id);
+        added++;
+      }
+
+      stats.nodes = nodes.length;
+      stats.depth = Math.max(stats.depth, node.depth + 1);
+      stats.elapsed = Math.floor((Date.now() - startTs) / 1000);
+      
+      hudEl.innerHTML =
+        "ELAPSED " + fmtTime(stats.elapsed) + "<br>" +
+        "NODES " + stats.nodes + "<br>" +
+        "DEPTH " + stats.depth + "<br>" +
+        "QUEUE " + queue.length;
+
+      if (nodes.length % 8 === 0) autoFit();
+      await new Promise(function (r) { setTimeout(r, added ? 15 : 5); });
+    }
   }
 
   function fmtTime(s) {
@@ -398,52 +481,6 @@
     var m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
     var ss = String(s % 60).padStart(2, "0");
     return h + ":" + m + ":" + ss;
-  }
-  function renderHud() {
-    hudEl.innerHTML =
-      "ELAPSED " + fmtTime(stats.elapsed) + "<br>" +
-      "NODES " + stats.nodes + "<br>" +
-      "DEPTH " + stats.depth + "<br>" +
-      "QUEUE " + queue.length;
-  }
-  function relToShort(rel) {
-    if (rel === "synonym") return "syn";
-    if (rel === "hypernym") return "hyper";
-    if (rel === "hyponym") return "hypo";
-    if (rel === "derivation") return "deriv";
-    return "assoc";
-  }
-
-  // ---------- 数千語規模ループ (MAX_NODES: 3000) ----------
-  var MAX_NODES = 3000, MAX_DEPTH = 15;
-  async function loop() {
-    while (running) {
-      if (nodes.length >= MAX_NODES) { setStatus("大規模言語宇宙完成 · esc で終了"); break; }
-      var nextId = queue.shift();
-      if (nextId == null) { setStatus("展開完了 · esc で終了"); break; }
-      var node = nodeById(nextId);
-      if (!node || node.depth >= MAX_DEPTH) continue;
-
-      var related = expandWord(node.word);
-      var added = 0;
-      for (var i = 0; i < related.length && nodes.length < MAX_NODES; i++) {
-        var w = related[i].word;
-        if (!w || seen[w]) continue;
-        seen[w] = 1;
-        addNode(w, related[i].relation, relToShort(related[i].relation), node.id, node.depth + 1);
-        queue.push(idCounter);
-        added++;
-      }
-
-      stats.nodes = nodes.length;
-      stats.depth = Math.max(stats.depth, node.depth + 1);
-      stats.elapsed = Math.floor((Date.now() - startTs) / 1000);
-      renderHud();
-
-      if (nodes.length % 5 === 0) autoFit(nodes);
-      // 高速展開のために待ち時間を短縮
-      await new Promise(function(r) { setTimeout(r, added ? 30 : 10); });
-    }
   }
 
   function start() {
@@ -453,46 +490,32 @@
     seedText = text;
 
     genesisEl.style.opacity = "0";
-    setTimeout(function () { genesisEl.style.display = "none"; }, 1200);
-    viewport.style.display = "block";
+    setTimeout(function () { genesisEl.style.display = "none"; }, 800);
     hudEl.style.display = "block";
     escEl.style.display = "block";
 
     nodes = []; queue = []; seen = {}; idCounter = 0;
     stats = { elapsed: 0, nodes: 0, depth: 0 };
 
-    // 起点ノード全文表示
-    var seedNode = {
-      id: ++idCounter, word: text, relation: "seed", relShort: "seed",
-      parentId: null, depth: 0, x: 0, y: 0
-    };
-    nodes.push(seedNode);
+    var seedNode = addNode(text, "seed", null, 0);
     seen[text] = 1;
-    createNodeEl(seedNode);
 
-    // 文章からの単語抽出し、キューを初期化
     var extracted = extractWords(text);
     for (var i = 0; i < extracted.length; i++) {
       var w = extracted[i];
       if (!seen[w]) {
         seen[w] = 1;
-        var subNode = addNode(w, "association", "assoc", seedNode.id, 1);
-        queue.push(subNode.id);
+        var sub = addNode(w, "assoc", seedNode.id, 1);
+        queue.push(sub.id);
       }
     }
 
     stats.nodes = nodes.length;
-    renderHud();
-    autoFit(nodes);
+    autoFit();
 
     phase = "running";
     running = true;
     startTs = Date.now();
-    setInterval(function () {
-      if (phase !== "running") return;
-      stats.elapsed = Math.floor((Date.now() - startTs) / 1000);
-      renderHud();
-    }, 1000);
     loop();
   }
 
@@ -506,12 +529,10 @@
     });
   }
 
-  // 終了画面 (指定の文章群を削除し、メタルグのみに修正)
   function endSession() {
     if (phase !== "running") return;
     running = false;
     phase = "ended";
-    viewport.style.display = "none";
     hudEl.style.display = "none";
     escEl.style.display = "none";
     setStatus("");
@@ -527,6 +548,7 @@
         "<div>DEPTH " + stats.depth + "</div>" +
       "</div>" +
       '<a class="top-link" id="top-link">TOP</a>';
+    
     var topLink = document.getElementById("top-link");
     if (topLink) topLink.addEventListener("click", function () { location.reload(); });
   }
