@@ -147,6 +147,15 @@
   #final .gap { flex: 1; min-height: 38vh; }
   #final .last { font-size: 16px; line-height: 1.7; max-width: 560px; opacity: 0.9; }
   #final .closing { font-size: 13px; opacity: 0.45; letter-spacing: 0.04em; }
+  #setup .note { text-transform: none; max-width: 88vw; text-align: center; line-height: 1.8; letter-spacing: 0.06em; }
+  #esc-hint { pointer-events: auto; cursor: pointer; padding: 8px; }
+  @media (hover: none) { #esc-hint { opacity: 0.5; } }
+  @media (max-width: 640px) {
+    #setup { bottom: 16vh; }
+    #setup input { width: min(80vw, 340px); font-size: 16px; }
+    #hud { right: 12px; bottom: 12px; font-size: 9px; }
+    #esc-hint { left: 12px; bottom: 6px; }
+  }
 </style>
 </head>
 <body>
@@ -178,7 +187,7 @@
 
   <!-- HUD -->
   <div id="hud" style="display:none"></div>
-  <div id="esc-hint" style="display:none">esc</div>
+  <div id="esc-hint" style="display:none">esc · 終了</div>
   <div id="status" style="display:none"></div>
 
   <!-- Final log -->
@@ -458,6 +467,44 @@
   }
 
   // ---------- 端末内蔵AI (Chrome Prompt API) ----------
+  var wl = { engine: null };
+  async function initWeb() {
+    if (!navigator.gpu) throw new Error("nogpu");
+    var ad = await navigator.gpu.requestAdapter();
+    if (!ad) throw new Error("nogpu");
+    var f16 = ad.features && ad.features.has("shader-f16");
+    var m = await import("https://esm.run/@mlc-ai/web-llm");
+    var have = m.prebuiltAppConfig.model_list.map(function (x) { return x.model_id; });
+    var q = f16 ? "q4f16_1" : "q4f32_1";
+    var cands = ["Qwen2.5-1.5B-Instruct-" + q + "-MLC", "Qwen2.5-0.5B-Instruct-" + q + "-MLC"].filter(function (id) { return have.indexOf(id) >= 0; });
+    if (!cands.length) throw new Error("nomodel");
+    for (var i = 0; i < cands.length; i++) {
+      try {
+        wl.engine = await m.CreateMLCEngine(cands[i], {
+          initProgressCallback: function (pr) {
+            setStatus("ブラウザ内AIを準備中 " + Math.round((pr.progress || 0) * 100) + "%（初回のみ数百MB〜1GBをダウンロード。Wi-Fi推奨）");
+          }
+        });
+        return;
+      } catch (e) { wl.engine = null; }
+    }
+    throw new Error("loadfail");
+  }
+  async function callWeb(stage, attempt) {
+    var user = buildUser(stage, attempt, buildLimitedList(1400));
+    var msgs = [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: user }];
+    var r;
+    try {
+      r = await wl.engine.chat.completions.create({ messages: msgs, temperature: 0.9, top_p: 0.95, max_tokens: 240, response_format: { type: "json_object" } });
+    } catch (e) {
+      r = await wl.engine.chat.completions.create({ messages: msgs, temperature: 0.9, top_p: 0.95, max_tokens: 240 });
+    }
+    var c = r.choices[0].message.content || "";
+    try { return JSON.parse(c); } catch (e) {
+      var mm = c.match(/"thought"\s*:\s*"([^"]+)/);
+      return { thought: mm ? mm[1] : "" };
+    }
+  }
   async function initLocal() {
     if (local.state === "loading") return;
     local.state = "loading";
@@ -495,11 +542,18 @@
       local.state = "ready";
       setStatus("");
     } catch (e) {
-      local.state = "unavailable";
-      local.msg = "この環境ではローカルAIを使えません（Chrome 148以降のデスクトップ版が必要）。ローカルサーバ（Ollama等）を指定すると続けられます";
+      try {
+        await initWeb();
+        local.state = "ready";
+        setStatus("");
+      } catch (e2) {
+        local.state = "unavailable";
+        local.msg = "この環境ではローカルAIを使えません（" + (e2.message === "nogpu" ? "WebGPU非対応" : "ブラウザ内AIの読み込みに失敗") + "）。同じWi-Fi上のPCで動かしたサーバ（Ollama等）のURLを入れると続けられます（スマホでは localhost ではなくPCのIPアドレス）";
+      }
     }
   }
   async function resetLocal() {
+    if (wl.engine) { ctx.failures = 0; return; }
     try { if (local.base) local.base.destroy(); } catch (e) {}
     local.base = null;
     local.state = "idle";
@@ -510,8 +564,8 @@
       if (cfgReady()) { setupEl.style.display = "none"; return true; }
       if (local.state === "ready") return true;
       if (local.state === "unavailable") {
-        showSetup("ローカルAIが使えない環境です · ローカルサーバ（Ollama等）のURLとモデル名を入れてEnter");
-        setStatus(local.msg);
+        showSetup(local.msg);
+        setStatus("");
         await sleep(1500);
       } else {
         await sleep(400);
@@ -563,7 +617,7 @@
     attempt = attempt || 0;
     if (stage === "THESE" && attempt === 0) prepareThese();
 
-    var parsed = cfgReady() ? await callApi(stage, attempt) : await callChrome(stage, attempt);
+    var parsed = cfgReady() ? await callApi(stage, attempt) : (local.base ? await callChrome(stage, attempt) : await callWeb(stage, attempt));
     var text = String((parsed && parsed.thought) || "").trim()
       .replace(/^(正|反|合|These|Antithese|Synthese)\s*[：:]\s*/i, "");
     if (!text) throw new Error("empty thought");
@@ -661,6 +715,19 @@
   var view = { scale: 1, tx: 0, ty: 0 };
   var userInteracted = 0;
   var dragging = false, lastDrag = null;
+  var pts = new Map(), lastPinch = 0;
+  function pinch(e) {
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    var a = Array.from(pts.values()), d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y);
+    if (lastPinch) {
+      var ns = Math.max(0.2, Math.min(2.5, view.scale * d / lastPinch));
+      var mx = (a[0].x + a[1].x) / 2, my = (a[0].y + a[1].y) / 2;
+      var wx = (mx - view.tx) / view.scale, wy = (my - view.ty) / view.scale;
+      view.scale = ns; view.tx = mx - wx * ns; view.ty = my - wy * ns;
+      applyTransform(false);
+    }
+    lastPinch = d; userInteracted = Date.now();
+  }
 
   function applyTransform(smooth) {
     world.classList.toggle("smooth", !!smooth);
@@ -703,17 +770,19 @@
   }, { passive: false });
 
   viewport.addEventListener("pointerdown", function (e) {
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     dragging = true; viewport.classList.add("dragging"); lastDrag = { x: e.clientX, y: e.clientY };
     userInteracted = Date.now();
   });
   viewport.addEventListener("pointermove", function (e) {
+    if (pts.size > 1) { pinch(e); return; }
     if (!dragging) return;
     var dx = e.clientX - lastDrag.x, dy = e.clientY - lastDrag.y;
     lastDrag = { x: e.clientX, y: e.clientY };
     view.tx += dx; view.ty += dy;
     applyTransform(false);
   });
-  function endDrag() { dragging = false; viewport.classList.remove("dragging"); }
+  function endDrag(e) { if (e) pts.delete(e.pointerId); lastPinch = 0; dragging = false; viewport.classList.remove("dragging"); }
   viewport.addEventListener("pointerup", endDrag);
   viewport.addEventListener("pointerleave", endDrag);
 
@@ -950,6 +1019,7 @@
     markLatest();
     autoFit(thoughts);
 
+    try { if (navigator.wakeLock) navigator.wakeLock.request("screen"); } catch (e) {}
     phase = "running";
     running = true;
     startTs = Date.now();
@@ -1008,6 +1078,7 @@
     });
   }
 
+  escEl.addEventListener("click", function () { endSession(); });
   window.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && phase === "running") endSession();
   });
