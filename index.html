@@ -41,28 +41,6 @@
   .genesis-input::placeholder { color: transparent; }
   .genesis-hint { font-size: 10px; letter-spacing: 0.22em; opacity: 0.3; text-transform: uppercase; }
 
-  /* Optional: local server (unlimited expansion). Works offline without it. */
-  #setup {
-    position: fixed; left: 0; right: 0; bottom: 9vh; z-index: 50;
-    display: flex; flex-direction: column; align-items: center; gap: 10px;
-    opacity: 0.45;
-  }
-  #setup .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-  #setup input {
-    background: transparent; border: none; border-bottom: 1px solid;
-    outline: none; padding: 5px 4px; font-size: 11px; letter-spacing: 0.04em;
-    color: inherit; text-align: center; border-radius: 0;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  }
-  #root.day #setup input   { border-bottom-color: rgba(0,0,0,0.25); }
-  #root.night #setup input { border-bottom-color: rgba(255,255,255,0.3); }
-  #setup input::placeholder { color: inherit; opacity: 0.45; }
-  #setup .note {
-    font-size: 9px; letter-spacing: 0.14em; opacity: 0.6; line-height: 1.9;
-    max-width: 92vw; text-align: center;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  }
-
   /* Thought world */
   #viewport { position: fixed; inset: 0; overflow: hidden; cursor: grab; touch-action: none; }
   #viewport.dragging { cursor: grabbing; }
@@ -148,8 +126,6 @@
   #final .top-link:hover { opacity: 0.9; }
 
   @media (max-width: 640px) {
-    #setup { bottom: 13vh; }
-    #setup input { width: min(80vw, 340px); font-size: 16px; }
     #hud { right: 12px; bottom: 12px; font-size: 9px; }
     #esc-hint { left: 12px; bottom: 6px; }
   }
@@ -164,15 +140,6 @@
       <input id="sentence" class="genesis-input" autofocus spellcheck="false" />
       <div class="genesis-hint">press enter</div>
     </div>
-  </div>
-
-  <!-- Optional local server (Ollama / LM Studio など)。未設定でも内蔵辞書で動く -->
-  <div id="setup">
-    <div class="row">
-      <input id="baseUrl" placeholder="http://localhost:11434/v1" spellcheck="false" />
-      <input id="model" placeholder="モデル名 (例 qwen2.5:7b)" spellcheck="false" />
-    </div>
-    <div class="note">任意 · ローカルサーバを繋ぐと無限に広がる / 未設定なら内蔵辞書で展開 · Enterで確定</div>
   </div>
 
   <!-- Thought world -->
@@ -208,32 +175,6 @@
   }
   applyTheme();
   setInterval(applyTheme, 60000);
-
-  // ---------- config (optional local OpenAI-compatible server) ----------
-  var CFG_KEY = "firstsentence.cfg";
-  function loadCfg() { try { return JSON.parse(localStorage.getItem(CFG_KEY) || "{}"); } catch (e) { return {}; } }
-  function saveCfg(c) { try { localStorage.setItem(CFG_KEY, JSON.stringify(c)); } catch (e) {} }
-  var cfg = loadCfg();
-
-  var baseUrlEl = document.getElementById("baseUrl");
-  var modelEl = document.getElementById("model");
-  if (cfg.baseUrl) baseUrlEl.value = cfg.baseUrl;
-  if (cfg.model) modelEl.value = cfg.model;
-
-  function commitSetup() {
-    var u = baseUrlEl.value.trim();
-    if (!u) { delete cfg.baseUrl; delete cfg.model; saveCfg(cfg); return; }
-    cfg.baseUrl = u.replace(/\/+$/, "");
-    cfg.model = modelEl.value.trim();
-    saveCfg(cfg);
-  }
-  function cfgReady() { return !!(cfg.baseUrl && cfg.model); }
-  [baseUrlEl, modelEl].forEach(function (el) {
-    el.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") { e.preventDefault(); commitSetup(); document.getElementById("sentence").focus(); }
-    });
-    el.addEventListener("blur", function () { if (baseUrlEl.value.trim()) commitSetup(); });
-  });
 
   // ---------- 内蔵 語彙辞書（WordNet・類義語辞書・Wikipedia のつながりを模した最小網） ----------
   // 関係: syn=類義 / hyper=上位 / hypo=下位 / assoc=連想 / deriv=派生
@@ -376,16 +317,6 @@
     return out;
   }
 
-  // ---------- 語の展開（辞書 or ローカルサーバ） ----------
-  var SYS = [
-    "あなたは日本語の語彙の辞書データベースである。",
-    "与えられた語から、WordNet（上位・下位・同義語）、類義語辞書、Wikipediaのリンク先のように、",
-    "意味的・連想的につながる日本語の語を集めよ。",
-    "4〜9語。すべて日本語の見出し形。同じ語は不可。一般的で広く通じる語にせよ。",
-    "関係を付与：synonym（類義）/ hypernym（上位）/ hyponym（下位）/ association（連想）/ derivation（派生）。",
-    '出力は JSON のみ：{"words":[{"word":"string","relation":"synonym|hypernym|hyponym|association|derivation"}]}'
-  ].join("\n");
-
   function normRel(r) {
     r = String(r || "").toLowerCase();
     if (r === "synonym" || r === "syn") return "synonym";
@@ -403,33 +334,7 @@
     return out;
   }
 
-  async function expandFromServer(word, depth) {
-    var user = "語：「" + word + "」\n深さ：" + depth + "\n" + SYS;
-    var res = await fetch(cfg.baseUrl + "/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: cfg.model,
-        temperature: 0.9,
-        response_format: { type: "json_object" },
-        messages: [{ role: "system", content: SYS }, { role: "user", content: user }]
-      })
-    });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    var data = await res.json();
-    var content = data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : "";
-    var parsed;
-    try { parsed = JSON.parse(content); } catch (e) { parsed = null; }
-    var arr = (parsed && parsed.words) || [];
-    return arr.map(function (w) { return { word: String(w.word || "").trim(), relation: normRel(w.relation) }; })
-              .filter(function (w) { return w.word; });
-  }
-
   async function expandWord(word, depth) {
-    if (cfgReady()) {
-      try { return await expandFromServer(word, depth); }
-      catch (e) { return expandFromDict(word); }
-    }
     return expandFromDict(word);
   }
 
@@ -587,7 +492,6 @@
   var hudEl = document.getElementById("hud");
   var escEl = document.getElementById("esc-hint");
   var finalEl = document.getElementById("final");
-  var setupEl = document.getElementById("setup");
   var statusEl = document.getElementById("status");
 
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
@@ -702,18 +606,14 @@
     if (phase !== "input") return;
     var text = sentenceEl.value.trim();
     if (!text) return;
-    commitSetup();
     seedText = text;
 
     var seeds = extractWords(text);
-    if (!cfgReady()) {
-      // 内蔵辞書モードでは、広がる語だけを起点に残す
-      var viable = seeds.filter(function (w) { return DICT[w]; });
-      if (viable.length) seeds = viable;
-    }
+    var viable = seeds.filter(function (w) { return DICT[w]; });
+    if (viable.length) seeds = viable;
+
     genesisEl.style.opacity = "0";
     setTimeout(function () { genesisEl.style.display = "none"; }, 1200);
-    setupEl.style.display = "none";
     viewport.style.display = "block";
     hudEl.style.display = "block";
     escEl.style.display = "block";
