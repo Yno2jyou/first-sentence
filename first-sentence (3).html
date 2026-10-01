@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FIRST SENTENCE</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+
+  #root {
+    position: fixed; inset: 0;
+    transition: background-color 60s linear, color 60s linear;
+    --conn: #c8c8c8;
+  }
+  #root.day  { background-color: #ffffff; color: #000000; --conn: #c8c8c8; --c-these: #1d4ed8; --c-anti: #d62828; --c-syn: #15803d; }
+  #root.night{ background-color: #000000; color: #ffffff; --conn: #3a3a3a; --c-these: #6aa5ff; --c-anti: #ff6b6b; --c-syn: #4fd18b; }
+
+  /* Genesis */
+  #genesis {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 64px;
+    transition: opacity 1.2s ease;
+  }
+  .genesis-title {
+    font-size: 22px; letter-spacing: 0.34em; text-transform: uppercase; font-weight: 400;
+  }
+  .genesis-field { display: flex; flex-direction: column; align-items: center; gap: 16px; width: 100%; }
+  .genesis-input {
+    width: min(560px, 80vw);
+    background: transparent; border: none; border-bottom: 1px solid;
+    outline: none; padding: 8px 4px; font-size: 18px; letter-spacing: 0.02em;
+    color: inherit; text-align: center; border-radius: 0;
+  }
+  #root.day .genesis-input   { border-bottom-color: rgba(0,0,0,0.18); }
+  #root.night .genesis-input { border-bottom-color: rgba(255,255,255,0.22); }
+  .genesis-input::placeholder { color: transparent; }
+  .genesis-hint {
+    font-size: 10px; letter-spacing: 0.22em; opacity: 0.3;
+    text-transform: uppercase;
+  }
+
+  /* One-time setup (only when no API key stored) */
+  #setup {
+    position: fixed; left: 0; right: 0; bottom: 12vh; z-index: 50;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    opacity: 0.5;
+  }
+  #setup .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  #setup input {
+    background: transparent; border: none; border-bottom: 1px solid;
+    outline: none; padding: 5px 4px; font-size: 11px; letter-spacing: 0.04em;
+    color: inherit; text-align: center; border-radius: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  #root.day #setup input   { border-bottom-color: rgba(0,0,0,0.25); }
+  #root.night #setup input { border-bottom-color: rgba(255,255,255,0.3); }
+  #setup input::placeholder { color: inherit; opacity: 0.4; }
+  #setup .note {
+    font-size: 9px; letter-spacing: 0.16em; opacity: 0.5; text-transform: uppercase;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  /* Thought world */
+  #viewport { position: fixed; inset: 0; overflow: hidden; cursor: grab; touch-action: none; }
+  #viewport.dragging { cursor: grabbing; }
+  #world { position: absolute; left: 0; top: 0; width: 0; height: 0; overflow: visible; transform-origin: 0 0; }
+  #world.smooth { transition: transform 1.4s cubic-bezier(0.22,1,0.36,1); }
+  #lines { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
+  .thought-line { stroke: var(--conn); stroke-width: 1; opacity: 0.45; transition: opacity 1.5s ease; fill: none; }
+
+  .thought-node {
+    position: absolute; transform: translate(-50%, -50%);
+    width: max-content; max-width: 280px; min-width: 4em; padding: 3px 5px;
+    text-align: center; font-size: 15px; line-height: 1.65; letter-spacing: 0.02em;
+    white-space: normal; word-break: normal; overflow-wrap: break-word;
+    opacity: 0.92; transition: opacity 1.5s ease, color 60s linear;
+  }
+  .thought-node.latest { animation: thought-pulse 3.2s ease-in-out infinite; }
+  /* 弁証法：正=太字 / 反=斜体 / 合=下線 */
+  .thought-node[data-type="THESE"]     { color: var(--c-these); font-weight: 700; font-style: normal; text-decoration: none; }
+  .thought-node[data-type="ANTITHESE"] { color: var(--c-anti);  font-style: italic; font-weight: 400; text-decoration: none; }
+  .thought-node[data-type="SYNTHESE"]  {
+    color: var(--c-syn); font-weight: 400; font-style: normal;
+    text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px;
+  }
+  .thought-node .rest { visibility: hidden; }
+  .node-tag {
+    position: absolute; left: 50%; top: -1.9em; transform: translateX(-50%);
+    white-space: nowrap; font-size: 8.5px; font-style: normal; font-weight: 400;
+    letter-spacing: 0.24em; opacity: 0.8; pointer-events: none; text-decoration: none;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  }
+  .thought-node[data-type="THESE"] .node-tag { font-weight: 700; }
+  .thought-node[data-type="ANTITHESE"] .node-tag { font-style: italic; }
+  .thought-node[data-type="SYNTHESE"] .node-tag { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  .thought-line.t-these { stroke: var(--c-these); opacity: 0.5; }
+  .thought-line.t-anti  { stroke: var(--c-anti);  opacity: 0.55; stroke-dasharray: 2 6; }
+  .thought-line.t-syn   { stroke: var(--c-syn);   opacity: 0.55; }
+  .c-these { color: var(--c-these); font-weight: 700; }
+  .c-anti  { color: var(--c-anti); font-style: italic; }
+  .c-syn   { color: var(--c-syn); text-decoration: underline; text-underline-offset: 3px; }
+  #status {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+    font-size: 10px; letter-spacing: 0.14em; opacity: 0.5; text-align: center; max-width: 80vw;
+    pointer-events: none; user-select: none; z-index: 40;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  .thought-node.seed {
+    white-space: nowrap; max-width: none; min-width: 0;
+    border-bottom: 1px solid currentColor; padding-bottom: 3px;
+  }
+  @keyframes thought-pulse { 0%,100% { opacity: 0.88; } 50% { opacity: 1; } }
+
+  /* HUD */
+  #hud {
+    position: fixed; right: 22px; bottom: 20px;
+    font-size: 10px; line-height: 1.9; letter-spacing: 0.1em; opacity: 0.7;
+    text-align: right; pointer-events: none; user-select: none;
+    transition: opacity 0.6s ease;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  #hud:hover { opacity: 1; }
+  #esc-hint {
+    position: fixed; left: 22px; bottom: 20px;
+    font-size: 10px; letter-spacing: 0.22em; opacity: 0.22; text-transform: uppercase;
+    pointer-events: none; user-select: none;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  /* Final log */
+  #final {
+    position: fixed; inset: 0; overflow-y: auto;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 16vh 24px 14vh; text-align: center;
+  }
+  #final .meta {
+    font-size: 11px; line-height: 2; letter-spacing: 0.14em; opacity: 0.5;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  #final .gap { flex: 1; min-height: 38vh; }
+  #final .last { font-size: 16px; line-height: 1.7; max-width: 560px; opacity: 0.9; }
+  #final .closing { font-size: 13px; opacity: 0.45; letter-spacing: 0.04em; }
+</style>
+</head>
+<body>
+<div id="root" class="day">
+  <!-- Genesis -->
+  <div id="genesis">
+    <div class="genesis-title">FIRST SENTENCE</div>
+    <div class="genesis-field">
+      <input id="sentence" class="genesis-input" autofocus spellcheck="false" />
+      <div class="genesis-hint">press enter</div>
+    </div>
+  </div>
+
+  <!-- Optional API setup (hidden by default; offline mode works without key) -->
+  <div id="setup" style="display:none">
+    <div class="row">
+      <input id="baseUrl" placeholder="http://localhost:11434/v1" spellcheck="false" />
+      <input id="model" placeholder="モデル名 (例 qwen2.5:7b)" spellcheck="false" />
+    </div>
+    <div class="note">local server (Ollama / LM Studio など) · URLとモデル名 · Enter</div>
+  </div>
+
+  <!-- Thought world -->
+  <div id="viewport" style="display:none">
+    <div id="world">
+      <svg id="lines" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud" style="display:none"></div>
+  <div id="esc-hint" style="display:none">esc</div>
+  <div id="status" style="display:none"></div>
+
+  <!-- Final log -->
+  <div id="final" style="display:none"></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- theme (day/night by local time, 60s cross-fade) ----------
+  function computePhase() {
+    var h = new Date().getHours();
+    return (h >= 6 && h < 18) ? "day" : "night";
+  }
+  var root = document.getElementById("root");
+  function applyTheme() {
+    var p = computePhase();
+    root.classList.remove("day", "night");
+    root.classList.add(p);
+  }
+  applyTheme();
+  setInterval(applyTheme, 60000);
+
+  // ---------- config (api key stored locally) ----------
+  var CFG_KEY = "monolith.cfg";
+  function loadCfg() {
+    try { return JSON.parse(localStorage.getItem(CFG_KEY) || "{}"); } catch (e) { return {}; }
+  }
+  function saveCfg(c) { localStorage.setItem(CFG_KEY, JSON.stringify(c)); }
+  var cfg = loadCfg();
+
+  var setupEl = document.getElementById("setup");
+  var baseUrlEl = document.getElementById("baseUrl");
+  var modelEl = document.getElementById("model");
+
+  function refreshSetupVisibility() {
+    // APIキーは任意。未設定ならオフライン（ローカル生成）で動く
+    setupEl.style.display = "none";
+  }
+  refreshSetupVisibility();
+
+  function commitSetup() {
+    var u = baseUrlEl.value.trim();
+    if (!u) { delete cfg.baseUrl; delete cfg.model; saveCfg(cfg); return; }
+    cfg.baseUrl = u.replace(/\/+$/, "");
+    cfg.model = modelEl.value.trim();
+    if (!cfg.model) return;
+    saveCfg(cfg);
+    refreshSetupVisibility();
+  }
+  [baseUrlEl, modelEl].forEach(function (el) {
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); commitSetup(); document.getElementById("sentence").focus(); }
+    });
+    el.addEventListener("blur", function () { if (baseUrlEl.value.trim()) commitSetup(); });
+  });
+
+  // ---------- thought engine : 弁証法 (正 → 反 → 合) ----------
+  var STAGE_SHORT = { SEED: "起点", THESE: "正", ANTITHESE: "反", SYNTHESE: "合" };
+  var STAGE_TAG = {
+    SEED: "起点 · SEED", THESE: "正 · THESE",
+    ANTITHESE: "反 · ANTITHESE", SYNTHESE: "合 · SYNTHESE"
+  };
+
+  // ctx : 現在進行中の三組 (Triade) と、掘り下げの状態
+  var ctx = { thesis: null, anti: null, forced: null, hint: null, seedWords: [], failures: 0 };
+
+  // local : 端末内蔵AI (Chrome の Prompt API / Gemini Nano)。APIキー不要・外部送信なし。
+  var local = { state: "idle", base: null, msg: "" };
+
+  var EXAMPLE = {
+    t: "運動不足は、気づかないうちに体力を落とす。だから、意識して歩く習慣をつけるべきだ。",
+    a: "歩く習慣は、時間と体力に余裕のある人だけが続けられる。忙しい人には、そもそも歩く時間がない。",
+    s: "運動を「特別にやるもの」と考えず、通勤や買い物のついでに歩く距離を少し増やす形にすれば、忙しい人でも続けられる。"
+  };
+
+  var SYSTEM_PROMPT = [
+    "あなたは「思考の自律実験」の観察対象であるAIだ。",
+    "人間が与えた最初の一文（起点・00番）を出発点に、思考を弁証法（正→反→合）で広げ続ける。正・反・合を一度に一つずつ生成する。合は、次の正の出発点になる。これまでの思考が番号付きで与えられる。",
+    "",
+    "【書き方】",
+    "- 起点の一文が実際に言っていること・前提・含意から出発し、筋道を立てて一歩ずつ考えを進めよ。読み手が「なるほど」と思える、論理のつながった内容にせよ。",
+    "- 現実にありえる話だけを書け。起点にない人名・金額・人数・時刻などの細かい数字や設定を勝手に作るな。",
+    "- 具体的にしすぎるな。例は、必要なときに身近でありふれたものを一つだけ使え。奇抜な設定も、抽象語の羅列も不可。",
+    "- 自然で読みやすい日本語で書け。難しい言い回しは使うな。",
+    "- 毎回、これまでと違う論点へ進め。同じ主張の言い換えは不可。原因、結果、前提、例外、立場の違い、時間の経過、反対の事例、他の分野との共通点などから選べ。",
+    "- 一つの思考は一文か二文。",
+    "- 「早起き・嘘・貯金・友人・見直し・暗記」の話題・語は、起点の一文に含まれない限り使うな。",
+    "",
+    "【各段階の役割】",
+    "- 正：出発点から導ける主張を一つ、反論できる形で言い切る。感想・問いは不可。",
+    "- 反：正が見落としている点、正が成り立たない条件、反対の事実を、筋の通った形で示して対立させる。",
+    "- 合：正と反の折衷や平均ではなく、それぞれが成り立つ条件を整理して、一歩先の考え方や結論に高める。",
+    "",
+    "【形の見本（題材・言葉は使うな）】",
+    "正：" + EXAMPLE.t, "反：" + EXAMPLE.a, "合：" + EXAMPLE.s,
+    "",
+    "物語を書くな。人間に問いかけるな。出力は JSONのみ。"
+  ].join("\n");
+
+  var SCHEMA_THOUGHT = { type: "object", properties: { thought: { type: "string" } }, required: ["thought"] };
+
+  var BANNED = ["早起き", "早く起き", "嘘", "うそ", "貯金", "友人", "見直", "暗記"];
+  var BAN_LABEL = "早起き・嘘・貯金・友人・見直し・暗記";
+  var LENSES = ["原因（なぜそうなるのか）", "結果・影響（そのあと何が起きるか）", "前提（当たり前と思われていること）",
+    "例外（当てはまらないケース）", "立場の違い（別の人から見るとどうか）", "時間の経過（短期と長期でどう変わるか）",
+    "反対の事例（逆のことが起きる場合）", "他分野との共通点（似た仕組み）", "やり方（どう実行するか）", "判断の基準（どう見分けるか）"];
+  var lensBag = [];
+  function nextLens() {
+    if (!lensBag.length) lensBag = LENSES.slice();
+    return lensBag.splice(Math.floor(Math.random() * lensBag.length), 1)[0];
+  }
+  function hasBanned(text) {
+    var seed = thoughts[0] ? thoughts[0].text : "";
+    return BANNED.some(function (w) { return text.indexOf(w) >= 0 && seed.indexOf(w) < 0; });
+  }
+  function cBigrams(str) {
+    var t = String(str).replace(/[\s。、，．,.！？!?「」『』（）()]/g, ""), set = {};
+    for (var i = 0; i < t.length - 1; i++) { var b = t.substr(i, 2); if (!/^[\u3040-\u309F]{2}$/.test(b)) set[b] = 1; }
+    return set;
+  }
+  function isRelevant(text, refs) {
+    var A = cBigrams(text);
+    for (var r = 0; r < refs.length; r++) { var B = cBigrams(refs[r]); for (var k in A) { if (B[k]) return true; } }
+    return false;
+  }
+  function refsFor(stage) {
+    var refs = [thoughts[0].text];
+    if (stage === "THESE" && ctx.forced) refs.push(ctx.forced.node.text);
+    if (stage !== "THESE" && ctx.thesis) refs.push(ctx.thesis.text);
+    if (stage === "SYNTHESE" && ctx.anti) refs.push(ctx.anti.text);
+    return refs;
+  }
+
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function pad2(n) { return String(n).padStart(2, "0"); }
+  function lineOf(t) {
+    var label = t.index === 0 ? "起点" : STAGE_SHORT[t.type] + "/" + t.type;
+    return pad2(t.index) + " [" + label + "] " + t.text;
+  }
+  function selectContext(thoughts) {
+    if (thoughts.length <= 260) return thoughts;
+    var first = thoughts[0];
+    var tail = thoughts.slice(-200);
+    var mid = thoughts.slice(1, thoughts.length - 200);
+    var sampled = mid.filter(function (_, i) { return i % 6 === 0; });
+    return [first].concat(sampled, tail);
+  }
+  function buildThoughtList(ts) { return ts.map(lineOf).join("\n"); }
+  // 端末内蔵AIは文脈が短いので、起点＋直近の思考だけを字数の範囲で渡す
+  function buildLimitedList(budget) {
+    var seedLine = lineOf(thoughts[0]), used = seedLine.length, tail = [];
+    for (var i = thoughts.length - 1; i >= 1; i--) {
+      var l = lineOf(thoughts[i]);
+      if (used + l.length + 1 > budget) break;
+      tail.unshift(l); used += l.length + 1;
+    }
+    var skipped = (thoughts.length - 1) - tail.length;
+    var res = [seedLine];
+    if (skipped > 0) res.push("（……途中の思考 " + skipped + " 件は省略……）");
+    return res.concat(tail).join("\n");
+  }
+  function fmtNode(t) { return pad2(t.index) + "番「" + t.text + "」"; }
+  function lastOfType(type) {
+    for (var i = thoughts.length - 1; i >= 0; i--) { if (thoughts[i].type === type) return thoughts[i]; }
+    return null;
+  }
+  function nodeByIndex(idx) {
+    for (var i = 0; i < thoughts.length; i++) { if (thoughts[i].index === idx) return thoughts[i]; }
+    return null;
+  }
+  function defaultSourceIndex() { var s = lastOfType("SYNTHESE"); return s ? s.index : 0; }
+  function cfgReady() { return !!(cfg.baseUrl && cfg.model); }
+
+  function setStatus(msg) {
+    var el = document.getElementById("status");
+    if (!el) return;
+    el.textContent = msg || "";
+    el.style.display = msg ? "block" : "none";
+  }
+  function showSetup(note) {
+    setupEl.style.display = "flex";
+    var n = setupEl.querySelector(".note");
+    if (n && note) n.textContent = note;
+  }
+
+  // ---------- 起点の一文の語 (掘り下げの手がかり) ----------
+  var STOP_WORDS = ["こと", "もの", "ため", "から", "ので", "です", "ます", "する", "した", "して", "いる", "ある", "ない",
+                    "よう", "これ", "それ", "あれ", "どう", "なぜ", "でも", "しかし", "そして", "また", "など", "まで",
+                    "より", "だけ", "ほど", "という", "として", "について", "によって", "けど"];
+  function extractWords(text) {
+    var out = [];
+    function add(w) {
+      if (w.length < 2 || STOP_WORDS.indexOf(w) >= 0 || out.indexOf(w) >= 0) return;
+      if (/^[\u3040-\u309F]+$/.test(w) && w.length <= 3) return;   // ひらがなだけの短い語は助詞・活用語尾
+      out.push(w);
+    }
+    if (typeof Intl !== "undefined" && Intl.Segmenter) {
+      var it = new Intl.Segmenter("ja", { granularity: "word" }).segment(text)[Symbol.iterator]();
+      for (var r = it.next(); !r.done; r = it.next()) { if (r.value.isWordLike) add(r.value.segment); }
+    } else {
+      (text.match(/[\u4E00-\u9FFF\u30A0-\u30FFー]{2,}|[A-Za-z0-9]{2,}/g) || []).forEach(add);
+    }
+    return out;
+  }
+  function pickHint() {
+    var used = thoughts.slice(1).map(function (t) { return t.text; }).join("");
+    var unused = ctx.seedWords.filter(function (w) { return used.indexOf(w) < 0; });
+    return unused.length ? pick(unused) : null;
+  }
+
+  // ---------- 重複・類似チェック (文字2-gramのJaccard) ----------
+  function bigrams(str) {
+    var t = String(str).replace(/[\s。、，．,.！？!?「」『』（）()]/g, "");
+    var set = {};
+    for (var i = 0; i < t.length - 1; i++) set[t.substr(i, 2)] = 1;
+    return set;
+  }
+  function similarity(a, b) {
+    var A = bigrams(a), B = bigrams(b), inter = 0, na = 0, nb = 0, k;
+    for (k in A) { na++; if (B[k]) inter++; }
+    for (k in B) nb++;
+    var uni = na + nb - inter;
+    return uni ? inter / uni : 0;
+  }
+  function tooSimilar(text) {
+    var pool = [EXAMPLE.t, EXAMPLE.a, EXAMPLE.s];
+    for (var i = 1; i < thoughts.length; i++) pool.push(thoughts[i].text);
+    for (var j = 0; j < pool.length; j++) { if (similarity(text, pool[j]) > 0.34) return true; }
+    return false;
+  }
+
+  // ---------- 正の出発点の選び方 (端末内蔵AIでは、コード側で枝分かれを保証する) ----------
+  function prepareThese() {
+    ctx.hint = pickHint();
+    ctx.lens = nextLens();
+    var latestS = lastOfType("SYNTHESE");
+    var src = latestS || thoughts[0], revisit = false;
+    if (latestS && thoughts.length > 6 && Math.random() < 0.3) {
+      var pool = thoughts.filter(function (t) {
+        return t !== latestS && (t.type === "SYNTHESE" || t.type === "ANTITHESE" || t.index === 0);
+      });
+      if (pool.length) { src = pick(pool); revisit = true; }
+    }
+    ctx.forced = { node: src, revisit: revisit };
+  }
+
+  function stageInstruction(stage) {
+    if (stage === "THESE") {
+      var n = ctx.forced.node, L = ["【今の段階：正（These）】", "今回の出発点は、" + fmtNode(n) + "である。"];
+      if (n.index === 0) L.push("この一文が言っていること、前提にしていること、含意していることから、主張を一つ取り出して立てよ。");
+      else if (ctx.forced.revisit) L.push("あえて過去のこの思考に立ち返り、これまでとは別の方向へ考えを進めよ。");
+      else L.push("この結論を受けて、一歩先へ進め。");
+      if (ctx.hint) L.push("できれば、起点の一文の中の「" + ctx.hint + "」に関わる主張にせよ。");
+      L.push("今回の切り口：" + ctx.lens + "。");
+      L.push("起点の一文「" + thoughts[0].text + "」から離れるな。出発点の言い直しは不可。筋の通った主張を、一文か二文で言い切れ。");
+      L.push("出力：{ \"thought\": string }");
+      return L.join("\n");
+    }
+    if (stage === "ANTITHESE") {
+      return ["【今の段階：反（Antithese）】", "対象となる正は、" + fmtNode(ctx.thesis) + "である。",
+        "この正が見落としている点、成り立たない条件、反対の事実のうち一つを、筋の通った形で示して反論せよ。単なる否定、言い換え、疑問形は不可。これまでの反と同じ型も不可。",
+        "出力：{ \"thought\": string }"].join("\n");
+    }
+    return ["【今の段階：合（Synthese）】", "正は、" + fmtNode(ctx.thesis) + "。", "反は、" + fmtNode(ctx.anti) + "。",
+      "折衷するな。正と反がそれぞれ成り立つ条件を整理し、一歩先の考え方や結論にまとめよ。これまでの合と同じ型・内容は不可。この合は次の正の出発点になる。",
+      "出力：{ \"thought\": string }"].join("\n");
+  }
+
+  function buildUser(stage, attempt, listText) {
+    var user = "これまでの思考：\n" + listText + "\n\n" + stageInstruction(stage);
+    if (attempt > 0) {
+      user += "\n\n注意：直前の案は、既存の思考と似ているか、起点の一文から離れていたか、禁止された話題に触れていた。別の論点から、起点の一文に結びつけて、自然な日本語で書き直せ。「" + BAN_LABEL + "」は使うな。";
+    }
+    return user + "\n\nJSONのみで返せ。";
+  }
+
+  // ---------- 端末内蔵AI (Chrome Prompt API) ----------
+  async function initLocal() {
+    if (local.state === "loading") return;
+    local.state = "loading";
+    local.msg = "";
+    setStatus("ローカルAIを準備中…");
+    try {
+      if (typeof LanguageModel === "undefined") throw new Error("noapi");
+      var variants = [
+        { expectedInputs: [{ type: "text", languages: ["ja"] }], expectedOutputs: [{ type: "text", languages: ["ja"] }] },
+        { expectedInputs: [{ type: "text", languages: ["en", "ja"] }], expectedOutputs: [{ type: "text", languages: ["ja"] }] }
+      ];
+      var samp = {};
+      try {
+        var pp = await LanguageModel.params();
+        if (pp) samp = { temperature: Math.min(1.1, pp.maxTemperature || 1.1), topK: Math.min(40, pp.maxTopK || 40) };
+      } catch (e0) {}
+      var base = null;
+      for (var i = 0; i < variants.length && !base; i++) {
+        try {
+          var av = await LanguageModel.availability(variants[i]);
+          if (av === "unavailable") continue;
+          var opts = Object.assign({}, variants[i], {
+            initialPrompts: [{ role: "system", content: SYSTEM_PROMPT }],
+            monitor: function (m) {
+              m.addEventListener("downloadprogress", function (e) {
+                setStatus("ローカルAIをダウンロード中 " + Math.round(e.loaded * 100) + "%");
+              });
+            }
+          });
+          try { base = await LanguageModel.create(Object.assign({}, opts, samp)); } catch (e1) { base = await LanguageModel.create(opts); }
+        } catch (e) { base = null; }
+      }
+      if (!base) throw new Error("unavailable");
+      local.base = base;
+      local.state = "ready";
+      setStatus("");
+    } catch (e) {
+      local.state = "unavailable";
+      local.msg = "この環境ではローカルAIを使えません（Chrome 148以降のデスクトップ版が必要）。ローカルサーバ（Ollama等）を指定すると続けられます";
+    }
+  }
+  async function resetLocal() {
+    try { if (local.base) local.base.destroy(); } catch (e) {}
+    local.base = null;
+    local.state = "idle";
+    await initLocal();
+  }
+  async function waitEngine() {
+    while (running) {
+      if (cfgReady()) { setupEl.style.display = "none"; return true; }
+      if (local.state === "ready") return true;
+      if (local.state === "unavailable") {
+        showSetup("ローカルAIが使えない環境です · ローカルサーバ（Ollama等）のURLとモデル名を入れてEnter");
+        setStatus(local.msg);
+        await sleep(1500);
+      } else {
+        await sleep(400);
+      }
+    }
+    return false;
+  }
+
+  async function callChrome(stage, attempt) {
+    var cw = local.base.contextWindow || 4096;
+    var tries = 0, shrink = 1;
+    while (true) {
+      var budget = Math.max(500, Math.floor((cw - 2400) * shrink));
+      var user = buildUser(stage, attempt, buildLimitedList(budget));
+      var sess = await local.base.clone();
+      try {
+        var out = await sess.prompt(user, { responseConstraint: SCHEMA_THOUGHT });
+        return JSON.parse(out);
+      } catch (e) {
+        if (e && e.name === "QuotaExceededError" && tries < 3) { tries++; shrink *= 0.6; continue; }
+        throw e;
+      } finally {
+        try { sess.destroy(); } catch (e2) {}
+      }
+    }
+  }
+
+  async function callApi(stage, attempt) {
+    var user = buildUser(stage, attempt, buildThoughtList(selectContext(thoughts)));
+    var r = await fetch(cfg.baseUrl + "/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: cfg.model,
+        temperature: 1.0,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: user }
+        ]
+      })
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status + " " + (await r.text()));
+    var data = await r.json();
+    try { return JSON.parse(data.choices[0].message.content); } catch (e) { return {}; }
+  }
+
+  async function generateStage(stage, attempt) {
+    attempt = attempt || 0;
+    if (stage === "THESE" && attempt === 0) prepareThese();
+
+    var parsed = cfgReady() ? await callApi(stage, attempt) : await callChrome(stage, attempt);
+    var text = String((parsed && parsed.thought) || "").trim()
+      .replace(/^(正|反|合|These|Antithese|Synthese)\s*[：:]\s*/i, "");
+    if (!text) throw new Error("empty thought");
+    ctx.failures = 0;
+
+    // 既存の思考と似すぎていたら、最大3回まで作り直させる
+    var bad = tooSimilar(text) || hasBanned(text) || !isRelevant(text, refsFor(stage));
+    if (attempt < 4 && bad) return generateStage(stage, attempt + 1);
+    if (hasBanned(text) || !isRelevant(text, refsFor(stage))) throw new Error("banned");
+
+    if (stage === "THESE") {
+      var pi;
+      if (ctx.forced) pi = ctx.forced.node.index;
+      else {
+        pi = Number(parsed.parent_index);
+        if (isNaN(pi) || pi < 0 || pi > thoughts.length - 1) pi = defaultSourceIndex();
+      }
+      return { text: text, parent_index: pi, parent2: null };
+    }
+    if (stage === "ANTITHESE") return { text: text, parent_index: ctx.thesis.index, parent2: null };
+    return { text: text, parent_index: ctx.anti.index, parent2: ctx.thesis.index };
+  }
+
+  function delayForType(type) {
+    switch (type) {
+      case "SYNTHESE": return 8000;   // 合には時間をかける
+      case "ANTITHESE": return 4500;
+      default: return 3500;
+    }
+  }
+
+  // 実測サイズに基づく配置。文字同士は絶対に重ならない。
+  var TAG_H = 20, GAP = 26;
+  function sizeOf(node) { return node._size; }
+  function rectOf(n) {
+    var sz = n._size, W = Math.max(sz.w, sz.tw || 0);
+    return { l: n.x - W / 2, r: n.x + W / 2, t: n.y - sz.h / 2 - TAG_H, b: n.y + sz.h / 2 };
+  }
+  function textRectOf(n) {
+    var sz = n._size;
+    return { l: n.x - sz.w / 2, r: n.x + sz.w / 2, t: n.y - sz.h / 2, b: n.y + sz.h / 2 };
+  }
+
+  function positionNode(anchor, baseDist, nodes, size, parents) {
+    var W = Math.max(size.w, size.tw || 0);
+    function rectAt(x, y) { return { l: x - W / 2, r: x + W / 2, t: y - size.h / 2 - TAG_H, b: y + size.h / 2 }; }
+    function hits(x, y) {
+      var a = rectAt(x, y);
+      for (var k = 0; k < nodes.length; k++) {
+        var b = rectOf(nodes[k]);
+        if (!(a.r + GAP <= b.l || b.r + GAP <= a.l || a.b + GAP <= b.t || b.b + GAP <= a.t)) return true;
+      }
+      return false;
+    }
+    // 親から新ノードへの線が、他の文字の上を通らないか
+    function crosses(x, y) {
+      for (var pi = 0; pi < parents.length; pi++) {
+        var p = parents[pi];
+        var dx = x - p.x, dy = y - p.y, len = Math.hypot(dx, dy) || 1;
+        var steps = Math.ceil(len / 12);
+        for (var st = 1; st < steps; st++) {
+          var px = p.x + dx * st / steps, py = p.y + dy * st / steps;
+          for (var k = 0; k < nodes.length; k++) {
+            if (parents.indexOf(nodes[k]) >= 0) continue;
+            var r = textRectOf(nodes[k]);
+            if (px > r.l - 4 && px < r.r + 4 && py > r.t - 4 && py < r.b + 4) return true;
+          }
+        }
+      }
+      return false;
+    }
+    var startAngle = Math.random() * Math.PI * 2;
+    for (var ring = 0; ring < 80; ring++) {
+      var dist = baseDist + ring * 30;
+      var n = 36 + ring * 2;
+      for (var i = 0; i < n; i++) {
+        var ang = startAngle + (i / n) * Math.PI * 2;
+        var x = Math.round(anchor.x + Math.cos(ang) * dist);
+        var y = Math.round(anchor.y + Math.sin(ang) * dist);
+        if (hits(x, y)) continue;
+        if (ring < 8 && crosses(x, y)) continue;
+        return { x: x, y: y };
+      }
+    }
+    // 到達しない想定の保険：どのノードからも遠く離す
+    var far = 0;
+    for (var q = 0; q < nodes.length; q++) far = Math.max(far, Math.abs(nodes[q].x), Math.abs(nodes[q].y));
+    return { x: far + W + 200, y: anchor.y };
+  }
+
+  // ---------- view / pan / zoom ----------
+  var viewport = document.getElementById("viewport");
+  var world = document.getElementById("world");
+  var linesSvg = document.getElementById("lines");
+  var view = { scale: 1, tx: 0, ty: 0 };
+  var userInteracted = 0;
+  var dragging = false, lastDrag = null;
+
+  function applyTransform(smooth) {
+    world.classList.toggle("smooth", !!smooth);
+    world.style.transform = "translate(" + view.tx + "px," + view.ty + "px) scale(" + view.scale + ")";
+  }
+
+  function autoFit(thoughts) {
+    if (!thoughts.length) return;
+    if (Date.now() - userInteracted < 8000) return;
+    var pad = 170;
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (var i = 0; i < thoughts.length; i++) {
+      var t = thoughts[i];
+      var rc = rectOf(t);
+      minX = Math.min(minX, rc.l); minY = Math.min(minY, rc.t);
+      maxX = Math.max(maxX, rc.r); maxY = Math.max(maxY, rc.b);
+    }
+    var w = Math.max(maxX - minX, 1), h = Math.max(maxY - minY, 1);
+    var scale = Math.min((window.innerWidth - pad * 2) / w, (window.innerHeight - pad * 2) / h, 1);
+    scale = Math.max(scale, 0.45);
+    var cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    view.scale = scale;
+    view.tx = window.innerWidth / 2 - cx * scale;
+    view.ty = window.innerHeight / 2 - cy * scale;
+    applyTransform(true);
+  }
+
+  viewport.addEventListener("wheel", function (e) {
+    e.preventDefault();
+    userInteracted = Date.now();
+    var factor = e.deltaY < 0 ? 1.1 : 0.9;
+    var newScale = Math.max(0.2, Math.min(2.5, view.scale * factor));
+    var rect = viewport.getBoundingClientRect();
+    var mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    var wx = (mx - view.tx) / view.scale, wy = (my - view.ty) / view.scale;
+    view.scale = newScale;
+    view.tx = mx - wx * newScale;
+    view.ty = my - wy * newScale;
+    applyTransform(false);
+  }, { passive: false });
+
+  viewport.addEventListener("pointerdown", function (e) {
+    dragging = true; viewport.classList.add("dragging"); lastDrag = { x: e.clientX, y: e.clientY };
+    userInteracted = Date.now();
+  });
+  viewport.addEventListener("pointermove", function (e) {
+    if (!dragging) return;
+    var dx = e.clientX - lastDrag.x, dy = e.clientY - lastDrag.y;
+    lastDrag = { x: e.clientX, y: e.clientY };
+    view.tx += dx; view.ty += dy;
+    applyTransform(false);
+  });
+  function endDrag() { dragging = false; viewport.classList.remove("dragging"); }
+  viewport.addEventListener("pointerup", endDrag);
+  viewport.addEventListener("pointerleave", endDrag);
+
+  // ---------- state ----------
+  var thoughts = [];
+  var phase = "input";
+  var latestId = null;
+  var idCounter = 0;
+  var nextId = function () { return ++idCounter; };
+  var startTs = 0;
+  var stats = { elapsed: 0, these: 0, anti: 0, syn: 0, stufe: 0, rueck: 0 };
+  var typingResolver = null;
+
+  var genesisEl = document.getElementById("genesis");
+  var sentenceEl = document.getElementById("sentence");
+  var hudEl = document.getElementById("hud");
+  var escEl = document.getElementById("esc-hint");
+  var finalEl = document.getElementById("final");
+
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  // ---------- node rendering (char-by-char) ----------
+  // 全文を不可視で先に配置して実寸を測る → タイプ中もサイズが変わらない
+  function createNodeEl(thought) {
+    var el = document.createElement("div");
+    el.className = "thought-node" + (thought.index === 0 ? " seed" : "");
+    el.setAttribute("data-type", thought.type);
+    el.style.visibility = "hidden";
+    var span = document.createElement("span");
+    var rest = document.createElement("span");
+    rest.className = "rest";
+    var tag = document.createElement("span");
+    tag.className = "node-tag";
+    tag.textContent = STAGE_TAG[thought.type] || "";
+    if (thought.index === 0) { span.textContent = thought.text; }
+    else { rest.textContent = thought.text; }
+    el.appendChild(span);
+    el.appendChild(rest);
+    el.appendChild(tag);
+    world.appendChild(el);
+
+    if (thought.index !== 0) {
+      // 折り返し位置を固定（端数による再折り返しを防ぐため +1）
+      el.style.width = (el.offsetWidth + 1) + "px";
+      el.style.maxWidth = "none";
+    }
+    thought._size = { w: el.offsetWidth, h: el.offsetHeight, tw: tag.offsetWidth };
+    thought.el = el;
+    thought.span = span;
+    thought.rest = rest;
+    return el;
+  }
+  function placeNodeEl(thought) {
+    thought.el.style.left = thought.x + "px";
+    thought.el.style.top = thought.y + "px";
+    thought.el.style.visibility = "";
+  }
+
+  function typeOut(thought) {
+    return new Promise(function (resolve) {
+      typingResolver = resolve;
+      var i = 0, speed = 45;
+      var id = setInterval(function () {
+        i += 1;
+        thought.span.textContent = thought.text.slice(0, i);
+        thought.rest.textContent = thought.text.slice(i);
+        if (i >= thought.text.length) {
+          clearInterval(id);
+          if (typingResolver) { var r = typingResolver; typingResolver = null; r(); }
+        }
+      }, speed);
+    });
+  }
+
+  function markLatest() {
+    for (var i = 0; i < thoughts.length; i++) {
+      if (thoughts[i].el) thoughts[i].el.classList.toggle("latest", thoughts[i].id === latestId);
+    }
+  }
+
+  // ---------- lines ----------
+  function svgPath(d, cls) {
+    var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("class", "thought-line" + (cls ? " " + cls : ""));
+    path.setAttribute("d", d);
+    linesSvg.appendChild(path);
+  }
+  function renderLines() {
+    while (linesSvg.firstChild) linesSvg.removeChild(linesSvg.firstChild);
+    for (var i = 0; i < thoughts.length; i++) {
+      var t = thoughts[i];
+      if (t.index === 0) continue;
+      var p = nodeByIndex(t.parent_index);
+      if (!p) continue;
+      // 過去の思考へ立ち返る正は曲線で描く
+      var revisit = t.type === "THESE" && t.parent_index !== t.index - 1;
+      var mx = (p.x + t.x) / 2 + (t.y - p.y) * 0.25;
+      var my = (p.y + t.y) / 2 - (t.x - p.x) * 0.25;
+      var cls = t.type === "ANTITHESE" ? "t-anti" : t.type === "SYNTHESE" ? "t-syn" : "t-these";
+      svgPath(revisit
+        ? "M " + p.x + " " + p.y + " Q " + mx + " " + my + " " + t.x + " " + t.y
+        : "M " + p.x + " " + p.y + " L " + t.x + " " + t.y, cls);
+      // 合は、正と反の両方から伸びる
+      if (t.parent2 !== null && t.parent2 !== undefined) {
+        var q = nodeByIndex(t.parent2);
+        if (q) svgPath("M " + q.x + " " + q.y + " L " + t.x + " " + t.y, "t-syn");
+      }
+    }
+  }
+
+  // ---------- stats ----------
+  function recomputeStats() {
+    var these = 0, anti = 0, syn = 0, stufe = 0, rueck = 0;
+    for (var i = 1; i < thoughts.length; i++) {
+      var t = thoughts[i];
+      if (t.type === "THESE") { these++; if (t.parent_index !== t.index - 1) rueck++; }
+      else if (t.type === "ANTITHESE") anti++;
+      else if (t.type === "SYNTHESE") syn++;
+      if (t.type === "SYNTHESE" && t.level > stufe) stufe = t.level;
+    }
+    stats.these = these; stats.anti = anti; stats.syn = syn;
+    stats.stufe = stufe; stats.rueck = rueck;
+    renderHud();
+  }
+
+  function fmtTime(s) {
+    var h = String(Math.floor(s / 3600)).padStart(2, "0");
+    var m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+    var ss = String(s % 60).padStart(2, "0");
+    return h + ":" + m + ":" + ss;
+  }
+  function renderHud() {
+    hudEl.innerHTML =
+      "ELAPSED " + fmtTime(stats.elapsed) + "<br>" +
+      '<span class="c-these">正 THESE ' + stats.these + "</span><br>" +
+      '<span class="c-anti">反 ANTITHESE ' + stats.anti + "</span><br>" +
+      '<span class="c-syn">合 SYNTHESE ' + stats.syn + "</span><br>" +
+      "STUFE " + stats.stufe + "<br>" +
+      "RÜCKGRIFFE " + stats.rueck;
+  }
+
+  // ---------- loop : 正 → 反 → 合 → (合を新たな正へ) ----------
+  var running = false;
+  async function loop() {
+    var stage = "THESE";
+    while (running) {
+      if (!(await waitEngine())) break;
+
+      var result;
+      setStatus("考えています…");
+      try {
+        result = await generateStage(stage);
+      } catch (e) {
+        if (e && e.message === "banned") { setStatus("別の角度を探しています…"); await sleep(600); continue; }
+        ctx.failures++;
+        setStatus(cfgReady() ? "ローカルサーバに接続できません（起動とCORS設定を確認）。再試行します…" : "ローカルAIが応答しません。再試行します…");
+        if (ctx.failures >= 3) { ctx.failures = 0; if (!cfgReady()) await resetLocal(); }
+        await sleep(4000);
+        continue;
+      }
+      setStatus("");
+      if (!running) break;
+
+      var parent = nodeByIndex(result.parent_index) || thoughts[thoughts.length - 1];
+      var second = (result.parent2 !== null && result.parent2 !== undefined) ? nodeByIndex(result.parent2) : null;
+
+      // 階層：合は正より一段高い
+      var level = stage === "SYNTHESE" ? (second ? second.level : parent.level) + 1 : parent.level;
+
+      var thought = {
+        id: nextId(),
+        index: thoughts.length,
+        text: result.text,
+        type: stage,
+        parent_index: result.parent_index,
+        parent2: second ? second.index : null,
+        level: level,
+        x: 0, y: 0
+      };
+      createNodeEl(thought);   // 実寸を測る
+
+      // 配置：合は、正と反のあいだに生まれる
+      var anchor = parent, dist = 205, parents = [parent];
+      if (stage === "THESE" && parent.index !== thoughts.length - 1) dist = 260;
+      if (stage === "SYNTHESE" && second) {
+        anchor = { x: (parent.x + second.x) / 2, y: (parent.y + second.y) / 2 };
+        dist = 150;
+        parents = [parent, second];
+      }
+      var pos = positionNode(anchor, dist, thoughts, thought._size, parents);
+      thought.x = pos.x; thought.y = pos.y;
+
+      thoughts.push(thought);
+      placeNodeEl(thought);
+      renderLines();
+      recomputeStats();
+      latestId = thought.id;
+      markLatest();
+      autoFit(thoughts);
+
+      if (stage === "THESE") { ctx.thesis = thought; ctx.anti = null; }
+      else if (stage === "ANTITHESE") { ctx.anti = thought; }
+
+      await typeOut(thought);
+      if (!running) break;
+      await sleep(delayForType(stage));
+
+      stage = stage === "THESE" ? "ANTITHESE" : stage === "ANTITHESE" ? "SYNTHESE" : "THESE";
+    }
+  }
+
+  // ---------- start ----------
+  function start() {
+    if (phase !== "input") return;
+    var text = sentenceEl.value.trim();
+    if (!text) return;
+
+    // ユーザー操作の直後に端末内蔵AIを起動する（ダウンロードにはユーザー操作が要る）
+    if (!cfgReady()) initLocal();
+    ctx.seedWords = extractWords(text);
+
+    genesisEl.style.opacity = "0";
+    setTimeout(function () { genesisEl.style.display = "none"; }, 1200);
+    setupEl.style.display = "none";
+    viewport.style.display = "block";   // 実寸を測るため、先に表示する
+    hudEl.style.display = "block";
+    escEl.style.display = "block";
+
+    var first = { id: nextId(), index: 0, text: text, type: "SEED", parent_index: -1, parent2: null, level: 0, x: 0, y: 0 };
+    createNodeEl(first);
+    thoughts.push(first);
+    placeNodeEl(first);
+    latestId = first.id;
+    markLatest();
+    autoFit(thoughts);
+
+    phase = "running";
+    running = true;
+    startTs = Date.now();
+    renderHud();
+    setInterval(function () {
+      if (phase !== "running") return;
+      stats.elapsed = Math.floor((Date.now() - startTs) / 1000);
+      renderHud();
+    }, 1000);
+    loop();
+  }
+  sentenceEl.addEventListener("keydown", function (e) {
+    // 日本語入力の変換確定のEnterでは始めない
+    if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); start(); }
+  });
+
+  // ---------- end ----------
+  function endSession() {
+    if (phase !== "running") return;
+    running = false;
+    phase = "ended";
+    recomputeStats();
+    var lastS = lastOfType("SYNTHESE");
+    var lastAny = thoughts.length > 1 ? thoughts[thoughts.length - 1] : null;
+    var lastText = lastS ? lastS.text : (lastAny ? lastAny.text : "");
+    var lastLabel = lastS ? "最後に到達した合 (Synthese)" : "最後に生成された思考";
+    var firstText = thoughts[0] ? thoughts[0].text : "";
+
+    viewport.style.display = "none";
+    hudEl.style.display = "none";
+    escEl.style.display = "none";
+    setStatus("");
+    setupEl.style.display = "none";
+
+    finalEl.style.display = "flex";
+    finalEl.innerHTML =
+      '<div class="meta">' +
+        '<div>SESSION 001</div>' +
+        '<div>HUMAN INPUT 「' + escapeHtml(firstText) + '」</div>' +
+        '<div style="height:1.1em"></div>' +
+        '<div>ELAPSED ' + fmtTime(stats.elapsed) + '</div>' +
+        '<div class="c-these">正 THESE ' + stats.these + '</div>' +
+        '<div class="c-anti">反 ANTITHESE ' + stats.anti + '</div>' +
+        '<div class="c-syn">合 SYNTHESE ' + stats.syn + '</div>' +
+        '<div>STUFE ' + stats.stufe + '</div>' +
+        '<div>RÜCKGRIFFE ' + stats.rueck + '</div>' +
+      '</div>' +
+      '<div class="gap"></div>' +
+      '<div class="last">' + lastLabel + '<div style="margin-top:1.4em">「' + escapeHtml(lastText) + '」</div></div>' +
+      '<div class="gap"></div>' +
+      '<div class="closing">あなたが与えたのは、一文だけでした。</div>';
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  window.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && phase === "running") endSession();
+  });
+
+  // expose for quick inspection
+  window.__monolith = { getThoughts: function () { return thoughts; } };
+})();
+</script>
+</body>
+</html>
