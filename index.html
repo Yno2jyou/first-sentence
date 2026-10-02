@@ -84,7 +84,7 @@
   <div id="genesis">
     <div class="genesis-title">FIRST SENTENCE</div>
     <div class="genesis-field">
-      <input id="sentence" class="genesis-input" autofocus spellcheck="false" placeholder="" />
+      <input id="sentence" class="genesis-input" autofocus spellcheck="false" placeholder="最初の言葉を入力" />
       <div class="genesis-hint">press enter</div>
     </div>
   </div>
@@ -101,7 +101,7 @@
 (function () {
   "use strict";
 
-  // テーマ色設定
+  // テーマ設定
   var THEME = {
     day: {
       bg: "#ffffff", line: "rgba(180,180,180,0.35)", text: "#111111",
@@ -122,18 +122,19 @@
   var root = document.getElementById("root");
   root.className = currentPhase;
 
-  // 自然な単語データベース（広範な日本語名詞・概念）
-  var WORD_POOL = [
-    "青空", "海洋", "森林", "風速", "光束", "地平線", "銀河系", "太陽", "月光", "流星",
-    "記憶", "未来", "過去", "情熱", "静寂", "静穏", "探求", "思考", "対話", "哲学",
-    "言葉", "詩歌", "音楽", "旋律", "和音", "色彩", "絵画", "建築", "幾何学", "時間",
-    "空間", "存在", "生命", "意識", "希望", "調和", "真理", "世界", "波動", "共鳴",
-    "物語", "幻想", "現実", "観測", "粒子", "万物", "感情", "精神", "知恵", "創世"
+  // 自然な完全単語のみで構成された語彙データベース（組み合わせ造語は一切行わない）
+  var NATURAL_WORDS = [
+    "雨", "水", "空", "海", "風", "光", "雲", "星", "月", "太陽",
+    "記憶", "未来", "過去", "情熱", "静寂", "思考", "対話", "哲学", "言葉", "音楽",
+    "色彩", "建築", "時間", "空間", "存在", "生命", "意識", "希望", "調和", "真理",
+    "世界", "波動", "共鳴", "物語", "幻想", "現実", "観測", "粒子", "万物", "感情",
+    "精神", "知恵", "創世", "新緑", "深海", "銀河", "微光", "軌道", "地平", "真空",
+    "呼吸", "輪郭", "余白", "残響", "熱量", "果実", "樹木", "原野", "孤島", "結晶"
   ];
 
   var DICT = {
-    "雨": [["水滴","assoc"],["雨雲","assoc"],["雨傘","assoc"],["梅雨","hyper"],["豪雨","hypo"],["虹","assoc"],["気象","hyper"],["湿気","assoc"]],
-    "水": [["海洋","assoc"],["河川","hypo"],["氷結","deriv"],["液体","hyper"],["水蒸気","assoc"],["生命","assoc"]],
+    "雨": [["水滴","assoc"],["雨雲","assoc"],["雨傘","assoc"],["梅雨","hyper"],["豪雨","hypo"],["虹","assoc"]],
+    "水": [["海洋","assoc"],["河川","hypo"],["氷結","deriv"],["液体","hyper"],["水蒸気","assoc"]],
     "宇宙": [["星々","assoc"],["時間","assoc"],["空間","assoc"],["銀河","assoc"],["無限","assoc"],["重力","assoc"]],
     "心": [["感情","assoc"],["人間","assoc"],["記憶","assoc"],["思考","assoc"],["精神","syn"]],
     "言葉": [["音声","assoc"],["文字","assoc"],["対話","assoc"],["意味","assoc"],["文学","hypo"]]
@@ -147,16 +148,16 @@
       var e = DICT[word];
       for (var i = 0; i < e.length; i++) out.push({ word: e[i][0], rel: e[i][1] });
     }
-    // 常に自然な単語プールから選定
-    var poolCopy = WORD_POOL.slice();
-    // シャッフル
+    
+    // 自然な単語リストからランダム抽出
+    var poolCopy = NATURAL_WORDS.slice();
     for (var k = poolCopy.length - 1; k > 0; k--) {
       var r = Math.floor(Math.random() * (k + 1));
       var temp = poolCopy[k]; poolCopy[k] = poolCopy[r]; poolCopy[r] = temp;
     }
     
     var relTypes = ["assoc", "hyper", "hypo", "syn", "deriv"];
-    for (var j = 0; j < poolCopy.length && out.length < 6; j++) {
+    for (var j = 0; j < poolCopy.length && out.length < 5; j++) {
       if (poolCopy[j] !== word) {
         var rel = relTypes[Math.floor(Math.random() * relTypes.length)];
         out.push({ word: poolCopy[j], rel: rel });
@@ -180,62 +181,64 @@
     return found;
   }
 
-  // ---------- 厳格な重なり防止 (Collision Avoidance) ----------
-  var MARGIN_X = 40; // 横方向の余白
-  var MARGIN_Y = 30; // 縦方向の余白
+  // ---------- 徹底された衝突判定 (AABB Overlap Prevention) ----------
+  var MARGIN_X = 60; // 横の十分なマージン
+  var MARGIN_Y = 45; // 縦の十分なマージン
 
-  function estWidth(word, isSeed) {
+  function getBoundingBoxWidth(word, isSeed) {
+    var fontSize = isSeed ? 18 : 14;
     var len = 0;
     for (var i = 0; i < word.length; i++) {
       len += word.charCodeAt(i) >= 0x2E80 ? 1.0 : 0.6;
     }
-    return Math.ceil(len * (isSeed ? 20 : 15) + 24);
+    return Math.ceil(len * fontSize + 20);
   }
 
-  function positionNode(anchor, baseDist, nodes, width, height) {
+  function positionNode(anchor, baseDist, existingNodes, width, height) {
     var startAng = Math.random() * Math.PI * 2;
-    var checkCount = nodes.length;
+    var nodeCount = existingNodes.length;
 
-    for (var ring = 0; ring < 120; ring++) {
-      var dist = baseDist + ring * 22;
-      var steps = 14 + ring * 2;
+    // 螺旋状に探索空間を広げて非衝突位置を完全構築
+    for (var ring = 0; ring < 200; ring++) {
+      var dist = baseDist + ring * 18;
+      var steps = 12 + ring * 3;
       for (var i = 0; i < steps; i++) {
         var ang = startAng + (i / steps) * Math.PI * 2;
-        var x = Math.round(anchor.x + Math.cos(ang) * dist);
-        var y = Math.round(anchor.y + Math.sin(ang) * dist);
+        var cx = Math.round(anchor.x + Math.cos(ang) * dist);
+        var cy = Math.round(anchor.y + Math.sin(ang) * dist);
 
-        var nl = x - width / 2 - MARGIN_X;
-        var nr = x + width / 2 + MARGIN_X;
-        var nt = y - height / 2 - MARGIN_Y;
-        var nb = y + height / 2 + MARGIN_Y;
+        // 新規ノードの境界矩形 (AABB)
+        var nl = cx - width / 2;
+        var nr = cx + width / 2;
+        var nt = cy - height / 2;
+        var nb = cy + height / 2;
 
         var collide = false;
-        for (var k = 0; k < checkCount; k++) {
-          var o = nodes[k];
-          var ol = o.x - o.w / 2;
-          var or = o.x + o.w / 2;
-          var ot = o.y - o.h / 2;
-          var ob = o.y + o.h / 2;
-
-          if (!(nr <= ol || o.r >= nl || nb <= ot || o.b >= nt)) {
-            if (Math.abs(x - o.x) < (width + o.w) / 2 + MARGIN_X &&
-                Math.abs(y - o.y) < (height + o.h) / 2 + MARGIN_Y) {
-              collide = true;
-              break;
-            }
+        for (var k = 0; k < nodeCount; k++) {
+          var o = existingNodes[k];
+          // マージンを含めた交差チェック
+          if (!(nr + MARGIN_X <= o.l - MARGIN_X || 
+                nl - MARGIN_X >= o.r + MARGIN_X || 
+                nb + MARGIN_Y <= o.t - MARGIN_Y || 
+                nt - MARGIN_Y >= o.b + MARGIN_Y)) {
+            collide = true;
+            break;
           }
         }
+
         if (!collide) {
-          return { x: x, y: y, l: nl, r: nr, t: nt, b: nb };
+          return { x: cx, y: cy, l: nl, r: nr, t: nt, b: nb };
         }
       }
     }
-    var rx = anchor.x + (Math.random() - 0.5) * 1000;
-    var ry = anchor.y + (Math.random() - 0.5) * 1000;
-    return { x: rx, y: ry, l: rx - width/2, r: rx + width/2, t: ry - height/2, b: ry + height/2 };
+    
+    // フォールバック（広大な遠方に飛ばす）
+    var farX = anchor.x + (Math.random() - 0.5) * 3000;
+    var farY = anchor.y + (Math.random() - 0.5) * 3000;
+    return { x: farX, y: farY, l: farX - width/2, r: farX + width/2, t: farY - height/2, b: farY + height/2 };
   }
 
-  // ---------- Canvas & モバイルタッチ（ピンチ操作安定化） ----------
+  // ---------- Canvas & モバイルピンチ安定化 ----------
   var canvas = document.getElementById("canvas");
   var ctx = canvas.getContext("2d", { alpha: false });
   var dpr = window.devicePixelRatio || 1;
@@ -259,11 +262,11 @@
   view.x = window.innerWidth / 2;
   view.y = window.innerHeight / 2;
 
-  // PC マウスホイール（マイルドズーム）
+  // ホイール操作（スムーズズーム）
   canvas.addEventListener("wheel", function (e) {
     e.preventDefault();
     userInteracted = true;
-    var factor = e.deltaY < 0 ? 1.04 : 0.96;
+    var factor = e.deltaY < 0 ? 1.05 : 0.95;
     var newScale = Math.max(0.03, Math.min(3.0, view.scale * factor));
     
     var mx = e.clientX, my = e.clientY;
@@ -275,7 +278,7 @@
     view.y = my - wy * newScale;
   }, { passive: false });
 
-  // Pointer Events（PC＆モバイル共通：跳ね・揺れ対策済み）
+  // タッチ・ポインター操作（画面飛び防止）
   canvas.addEventListener("pointerdown", function (e) {
     activePointers[e.pointerId] = { x: e.clientX, y: e.clientY };
     userInteracted = true;
@@ -309,7 +312,7 @@
       var p1 = activePointers[ptrs[0]];
       var p2 = activePointers[ptrs[1]];
       var dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
-      if (initialPinchDist > 10) {
+      if (initialPinchDist > 5) {
         var center = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
         var factor = dist / initialPinchDist;
         var newScale = Math.max(0.03, Math.min(3.0, initialScale * factor));
@@ -327,9 +330,7 @@
   function handlePointerEnd(e) {
     delete activePointers[e.pointerId];
     var ptrs = Object.keys(activePointers);
-    if (ptrs.length < 2) {
-      initialPinchDist = 0;
-    }
+    if (ptrs.length < 2) { initialPinchDist = 0; }
     if (ptrs.length === 1) {
       dragging = true;
       lastMouse = { x: activePointers[ptrs[0]].x, y: activePointers[ptrs[0]].y };
@@ -365,13 +366,13 @@
   function addNode(word, rel, parentId, depth) {
     var id = ++idCounter;
     var isSeed = (rel === "seed");
-    var w = estWidth(word, isSeed);
-    var h = isSeed ? 36 : 28;
+    var w = getBoundingBoxWidth(word, isSeed);
+    var h = isSeed ? 32 : 24;
 
     var parent = parentId ? nodes[parentId - 1] : null;
     var pos;
     if (parent) {
-      pos = positionNode(parent, 150 + Math.min(depth, 10) * 12, nodes, w, h);
+      pos = positionNode(parent, 180 + Math.min(depth, 8) * 15, nodes, w, h);
     } else {
       pos = { x: 0, y: 0, l: -w/2, r: w/2, t: -h/2, b: h/2 };
     }
@@ -389,22 +390,22 @@
     if (!nodes.length || userInteracted) return;
     
     var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    var step = nodes.length > 800 ? 5 : 1;
+    var step = nodes.length > 500 ? 4 : 1;
     for (var i = 0; i < nodes.length; i += step) {
-      minX = Math.min(minX, nodes[i].x); minY = Math.min(minY, nodes[i].y);
-      maxX = Math.max(maxX, nodes[i].x); maxY = Math.max(maxY, nodes[i].y);
+      minX = Math.min(minX, nodes[i].l); minY = Math.min(minY, nodes[i].t);
+      maxX = Math.max(maxX, nodes[i].r); maxY = Math.max(maxY, nodes[i].b);
     }
     var bw = Math.max(maxX - minX, 200), bh = Math.max(maxY - minY, 200);
-    var pad = 160;
+    var pad = 180;
     var s = Math.min((window.innerWidth - pad) / bw, (window.innerHeight - pad) / bh);
-    s = Math.max(0.03, Math.min(s, 0.9));
+    s = Math.max(0.04, Math.min(s, 0.9));
 
     view.scale = s;
     view.x = window.innerWidth / 2 - ((minX + maxX) / 2) * s;
     view.y = window.innerHeight / 2 - ((minY + maxY) / 2) * s;
   }
 
-  // ---------- 描画ループ ----------
+  // ---------- 描画 ----------
   function render() {
     var theme = THEME[currentPhase];
     ctx.save();
@@ -418,10 +419,10 @@
       ctx.translate(view.x, view.y);
       ctx.scale(view.scale, view.scale);
 
-      var screenL = -view.x / view.scale - 120;
-      var screenR = (window.innerWidth - view.x) / view.scale + 120;
-      var screenT = -view.y / view.scale - 120;
-      var screenB = (window.innerHeight - view.y) / view.scale + 120;
+      var screenL = -view.x / view.scale - 100;
+      var screenR = (window.innerWidth - view.x) / view.scale + 100;
+      var screenT = -view.y / view.scale - 100;
+      var screenB = (window.innerHeight - view.y) / view.scale + 100;
 
       // 1. 接続線
       ctx.lineWidth = 1 / view.scale;
@@ -434,19 +435,19 @@
         if ((n.x < screenL && p.x < screenL) || (n.x > screenR && p.x > screenR) ||
             (n.y < screenT && p.y < screenT) || (n.y > screenB && p.y > screenB)) continue;
 
-        var mx = (p.x + n.x) / 2 + (n.y - p.y) * 0.12;
-        var my = (p.y + n.y) / 2 - (n.x - p.x) * 0.12;
+        var mx = (p.x + n.x) / 2 + (n.y - p.y) * 0.1;
+        var my = (p.y + n.y) / 2 - (n.x - p.x) * 0.1;
         ctx.moveTo(p.x, p.y);
         ctx.quadraticCurveTo(mx, my, n.x, n.y);
       }
       ctx.stroke();
 
-      // 2. ノードテキスト
+      // 2. ノード描画
       for (var j = 0; j < nodes.length; j++) {
         var node = nodes[j];
         if (node.x < screenL || node.x > screenR || node.y < screenT || node.y > screenB) continue;
 
-        if (node.alpha < 1) node.alpha = Math.min(1, node.alpha + 0.12);
+        if (node.alpha < 1) node.alpha = Math.min(1, node.alpha + 0.15);
 
         ctx.save();
         ctx.translate(node.x, node.y);
@@ -463,14 +464,14 @@
           ctx.lineWidth = 2;
           ctx.strokeStyle = theme.text;
           ctx.beginPath();
-          ctx.moveTo(-node.w / 2 + 6, 14);
-          ctx.lineTo(node.w / 2 - 6, 14);
+          ctx.moveTo(-node.w / 2 + 4, 14);
+          ctx.lineTo(node.w / 2 - 4, 14);
           ctx.stroke();
         } else {
           ctx.font = "9px monospace";
           ctx.fillStyle = color;
-          ctx.globalAlpha = node.alpha * 0.65;
-          ctx.fillText(REL_TAG[node.rel] || "", 0, -14);
+          ctx.globalAlpha = node.alpha * 0.6;
+          ctx.fillText(REL_TAG[node.rel] || "", 0, -13);
 
           ctx.globalAlpha = node.alpha;
           ctx.font = (node.rel === "hyper" ? "bold " : "") + "14px sans-serif";
@@ -488,8 +489,8 @@
   }
   requestAnimationFrame(render);
 
-  // ---------- 宇宙生成ループ ----------
-  var MAX_NODES = 2500, MAX_DEPTH = 15;
+  // ---------- 生成ループ ----------
+  var MAX_NODES = 2000, MAX_DEPTH = 12;
 
   async function loop() {
     while (running) {
@@ -520,8 +521,8 @@
         "DEPTH " + stats.depth + "<br>" +
         "QUEUE " + queue.length;
 
-      if (nodes.length % 8 === 0) autoFit();
-      await new Promise(function (r) { setTimeout(r, added ? 12 : 4); });
+      if (nodes.length % 6 === 0) autoFit();
+      await new Promise(function (r) { setTimeout(r, added ? 16 : 4); });
     }
   }
 
