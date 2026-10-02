@@ -47,6 +47,14 @@
     text-align: right; pointer-events: none; user-select: none; z-index: 20;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
+  #root.day #genesis.veil { background: rgba(255,255,255,0.55); }
+  #root.night #genesis.veil { background: rgba(5,5,5,0.55); }
+  #genesis { transition: opacity 0.8s ease, background-color 0.5s ease; }
+  .btn2 { cursor: pointer; opacity: 0.45; padding: 4px; }
+  .btn2:hover { opacity: 0.9; }
+  #bar { position: fixed; left: 22px; bottom: 20px; display: flex; gap: 6px; z-index: 20; }
+  .btn { font-size: 10px; letter-spacing: 0.22em; opacity: 0.35; cursor: pointer; padding: 8px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .btn:hover { opacity: 0.9; }
   #esc-hint {
     position: fixed; left: 22px; bottom: 20px;
     font-size: 10px; letter-spacing: 0.22em; opacity: 0.3; text-transform: uppercase;
@@ -86,13 +94,16 @@
     <div class="genesis-field">
       <input id="sentence" class="genesis-input" autofocus spellcheck="false" placeholder="" />
       <div class="genesis-hint">press enter</div>
+      <div class="genesis-hint btn2" id="load-idb">Open the Galaxy</div>
+      <div class="genesis-hint btn2" id="load-file">Open the universe</div>
+      <input type="file" id="file" accept=".json" style="display:none" />
     </div>
   </div>
 
   <canvas id="canvas"></canvas>
 
   <div id="hud" style="display:none"></div>
-  <div id="esc-hint" style="display:none">esc · 終了</div>
+  <div id="bar" style="display:none"><span class="btn" id="b-end">esc · 終了</span><span class="btn" id="b-new">+ 銀河</span><span class="btn" id="b-save">保存</span><span class="btn" id="b-exp">書出</span></div>
   <div id="status" style="display:none"></div>
   <div id="final" style="display:none"></div>
 </div>
@@ -462,20 +473,44 @@
         if (a) a.push(n); else grid.set(k, [n]);
       }
   }
-  function findSpot(parent, hw, top, bot) {
-    if (!parent) return { x: 0, y: 0 };
-    var pr = Math.hypot(parent.x, parent.y);
-    var pa = pr < 1 ? Math.random() * 6.2832 : Math.atan2(parent.y, parent.x);
-    var a0 = pa + SWIRL * RING_STEP / Math.max(pr, 220) + (Math.random() - 0.5) * Math.min(0.9, 190 / Math.max(pr, 150));  // 対数螺旋の腕
-    var r = pr + RING_STEP, jumped = false;
+  // ---------- 銀河の形（30種のプリセット × 毎回ランダムな揺らぎ・回転・位相） ----------
+  // [横倍率, 縦倍率, 花弁数, 花弁の深さ, 角張り(2=円), 渦巻き, 中心の空洞]
+  var SHAPES = [
+    [1,1,0,0,2,.42,0],[1.7,.8,0,0,2,.4,0],[.8,1.6,0,0,2,.3,0],[1,1,0,0,2,.9,0],[1,1,0,0,2,.15,0],
+    [1,1,0,0,2,-.42,0],[1.9,.55,0,0,2,.2,0],[2.6,.4,0,0,2,0,0],[1,1,0,0,2,.4,.55],[1,1,0,0,2,0,.7],
+    [1,1,0,0,2,0,.35],[1,1,0,0,4,0,0],[1,1,0,0,3,.2,0],[1,1,0,0,1,0,0],[1,1,0,0,.7,0,0],
+    [1,1,0,0,.5,0,0],[1,1,3,.35,2,.3,0],[1,1,4,.4,2,.2,0],[1,1,5,.45,2,.2,0],[1,1,6,.4,2,.25,0],
+    [1,1,7,.4,2,0,0],[1,1,8,.35,2,0,0],[1,1,2,.4,2,.3,0],[1,1,1,.35,2,.2,0],[1,1,3,.3,1.5,0,0],
+    [1.3,1,5,.3,2,.5,.3],[1,1,6,.3,3,0,.45],[1,1,2,.25,2,.8,0],[1.4,.9,3,.3,2,-.3,0],[.6,1.8,4,.25,2,.2,0]
+  ];
+  var DEFAULT_SH = { sx: 1, sy: 1, k: 0, amp: 0, n: 2, sw: 0.42, hole: 0, cr: 1, sr: 0, ph: 0 };
+  function makeShape() {
+    var P = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+    var j = function () { return 0.88 + Math.random() * 0.24; };
+    var sx = P[0] * j(), sy = P[1] * j(), q = Math.sqrt(sx * sy), rot = Math.random() * 6.2832;
+    return { sx: sx / q, sy: sy / q, k: P[2], amp: P[3] * j(), n: P[4] === 2 ? 2 : P[4] * j(),
+      sw: P[5] * j() * (Math.random() < 0.5 ? 1 : -1), hole: P[6] * j(), cr: Math.cos(rot), sr: Math.sin(rot), ph: Math.random() * 6.2832 };
+  }
+  var _x = 0, _y = 0;
+  function shapeXY(g, ang, rr) {
+    var s = g.sh, n = s.n, c = Math.cos(ang), sn = Math.sin(ang);
+    var M = (1 + s.amp * Math.cos(s.k * ang + s.ph)) / (n === 2 ? 1 : Math.pow(Math.pow(Math.abs(c), n) + Math.pow(Math.abs(sn), n), 1 / n));
+    var x = M * rr * c * s.sx, y = M * rr * sn * s.sy;
+    _x = g.cx + x * s.cr - y * s.sr; _y = g.cy + x * s.sr + y * s.cr;
+  }
+  function findSpot(parent, hw, top, bot, g) {
+    if (!parent) return { x: g.cx, y: g.cy, u: 0, v: 0 };
+    var pv = parent.v, pu = pv < 1 ? Math.random() * 6.2832 : parent.u;
+    var a0 = pu + g.sh.sw * RING_STEP / Math.max(pv, 220) + (Math.random() - 0.5) * Math.min(0.9, 190 / Math.max(pv, 150));
+    var r = Math.max(pv + RING_STEP, g.sh.hole * g.est), jumped = false;
     for (var ring = 0; ; ring++) {
       var rr = r + ring * RAD_STEP, dA = ARC_STEP / rr;
       for (var j = 0; j < A_TRIES; j++) {
         var ang = a0 + ((j & 1) ? 1 : -1) * Math.ceil(j / 2) * dA;
-        var cx = Math.cos(ang) * rr, cy = Math.sin(ang) * rr;
-        if (isFree(cx - hw, cx + hw, cy + top, cy + bot)) return { x: cx, y: cy };
+        shapeXY(g, ang, rr);
+        if (isFree(_x - hw, _x + hw, _y + top, _y + bot)) return { x: _x, y: _y, u: ang, v: rr };
       }
-      if (!jumped && ring >= RING_TRIES) { jumped = true; r = Math.max(rr, galaxyR * 0.85); ring = -1; }
+      if (!jumped && ring >= RING_TRIES) { jumped = true; r = Math.max(rr, g.V * 0.85); ring = -1; }
     }
   }
 
@@ -503,27 +538,24 @@
   view.x = window.innerWidth / 2;
   view.y = window.innerHeight / 2;
 
-  // マウスホイール
+  // マウスホイール：目標倍率へ滑らかにイージング
+  var zoomAnim = null, lastInteract = 0;
   canvas.addEventListener("wheel", function (e) {
     e.preventDefault();
-    userInteracted = true;
-    markDirty();
-    var factor = e.deltaY < 0 ? 1.06 : 0.94;
-    var newScale = Math.max(0.002, Math.min(4.0, view.scale * factor));
-    
-    var mx = e.clientX, my = e.clientY;
-    var wx = (mx - view.x) / view.scale;
-    var wy = (my - view.y) / view.scale;
-
-    view.scale = newScale;
-    view.x = mx - wx * newScale;
-    view.y = my - wy * newScale;
+    userInteracted = true; markDirty();
+    var d = e.deltaY * (e.deltaMode === 1 ? 33 : 1);
+    var base = zoomAnim ? zoomAnim.t : view.scale;
+    zoomAnim = {
+      t: Math.max(0.00005, Math.min(4.0, base * Math.exp(-d * 0.0016))),
+      ax: e.clientX, ay: e.clientY,
+      wx: (e.clientX - view.x) / view.scale, wy: (e.clientY - view.y) / view.scale
+    };
   }, { passive: false });
 
   // ポインター・タッチ操作
   canvas.addEventListener("pointerdown", function (e) {
     activePointers[e.pointerId] = { x: e.clientX, y: e.clientY };
-    userInteracted = true;
+    userInteracted = true; zoomAnim = null;
     markDirty();
 
     var ptrs = Object.keys(activePointers);
@@ -559,7 +591,7 @@
       if (initialPinchDist > 5) {
         var center = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
         var factor = dist / initialPinchDist;
-        var newScale = Math.max(0.002, Math.min(4.0, initialScale * factor));
+        var newScale = Math.max(0.00005, Math.min(4.0, initialScale * factor));
 
         var wx = (center.x - view.x) / view.scale;
         var wy = (center.y - view.y) / view.scale;
@@ -588,283 +620,309 @@
   window.addEventListener("pointercancel", handlePointerEnd);
 
   // ---------- State ----------
-  var nodes = [];
-  var queue = [];
-  var seen = {};
-  var phase = "input";
-  var running = false;
-  var idCounter = 0;
-  var startTs = 0;
-  var seedText = "";
+  var nodes = [], galaxies = [], seen = {}, phase = "input", running = false, idCounter = 0, startTs = 0;
+  var MIN_NODES = 6000, MAX_NODES = 200000;   // 1銀河のノード数は この範囲でランダム決定
+  var BRANCH_MIN = 9, BRANCH_VAR = 7;
+  var RELS = ["seed", "syn", "hyper", "hypo", "assoc", "deriv"];
   var stats = { elapsed: 0, nodes: 0, depth: 0 };
+  var needsRedraw = true, lastFrameTime = 0, flashUntil = 0, gOpen = true;
 
-  var genesisEl = document.getElementById("genesis");
-  var sentenceEl = document.getElementById("sentence");
-  var hudEl = document.getElementById("hud");
-  var escEl = document.getElementById("esc-hint");
-  var statusEl = document.getElementById("status");
-  var finalEl = document.getElementById("final");
+  var genesisEl = document.getElementById("genesis"), sentenceEl = document.getElementById("sentence");
+  var hudEl = document.getElementById("hud"), barEl = document.getElementById("bar");
+  var statusEl = document.getElementById("status"), finalEl = document.getElementById("final"), fileEl = document.getElementById("file");
 
   function setStatus(msg) { statusEl.textContent = msg || ""; statusEl.style.display = msg ? "block" : "none"; }
+  function flash(msg) { setStatus(msg); flashUntil = Date.now() + 3000; }
 
-  function addNode(word, rel, parentId, depth) {
-    var id = ++idCounter, isSeed = (rel === "seed");
-    ctx.font = isSeed ? "bold 20px sans-serif" : (rel === "hyper" ? "bold " : "") + "14px sans-serif";
-    var hw = Math.max(ctx.measureText(word).width, 22) / 2 + 3;
-    var top = isSeed ? -14 : -17, bot = isSeed ? 18 : 9;
-    var parent = parentId ? nodes[parentId - 1] : null;
-    var pos = findSpot(parent, hw, top, bot);
-    var node = {
-      id: id, word: word, rel: rel, parentId: parentId, depth: depth,
-      x: pos.x, y: pos.y, l: pos.x - hw, r: pos.x + hw, t: pos.y + top, b: pos.y + bot,
-      w: hw * 2, h: bot - top, alpha: 0
-    };
+  var CW = {};   // 1文字ごとの幅キャッシュ（measureText を節約して高速化）
+  function boxOf(word, rel) {
+    var font = rel === "seed" ? "bold 20px sans-serif" : (rel === "hyper" ? "bold " : "") + "14px sans-serif";
+    var m = CW[font] || (CW[font] = {}), tw = 0;
+    for (var i = 0; i < word.length; i++) {
+      var ch = word[i], c = m[ch];
+      if (c === undefined) { ctx.font = font; c = m[ch] = ctx.measureText(ch).width; }
+      tw += c;
+    }
+    var hw = Math.max(tw, 22) / 2 + 4;
+    return rel === "seed" ? { hw: hw, top: -14, bot: 18 } : { hw: hw, top: -17, bot: 9 };
+  }
+  function makeNode(word, rel, parentId, depth, x, y, g, u, v) {
+    var b = boxOf(word, rel);
+    var node = { id: ++idCounter, word: word, rel: rel, parentId: parentId, depth: depth, g: g.id,
+      x: x, y: y, u: u, v: v, l: x - b.hw, r: x + b.hw, t: y + b.top, b: y + b.bot, w: b.hw * 2, alpha: 0 };
     gridInsert(node);
-    var d = Math.hypot(pos.x, pos.y) + hw;
-    if (d > galaxyR) galaxyR = d;
-    nodes.push(node);
+    var d = Math.hypot(x - g.cx, y - g.cy) + b.hw;
+    if (d > g.R) g.R = d;
+    if (v > g.V) g.V = v;
+    nodes.push(node); g.list.push(node);
     return node;
+  }
+  function addNode(word, rel, parentId, depth, g) {
+    var b = boxOf(word, rel);
+    var p = findSpot(parentId ? nodes[parentId - 1] : null, b.hw, b.top, b.bot, g);
+    return makeNode(word, rel, parentId, depth, p.x, p.y, g, p.u, p.v);
+  }
+
+  // 新しい銀河の中心：既存銀河と重ならない位置（宇宙の中心に近い所から探す）
+  function placeCenter(est) {
+    if (!galaxies.length) return { x: 0, y: 0 };
+    for (var d = est * 0.5; ; d += est * 0.15) {
+      for (var k = 0; k < 16; k++) {
+        var a = Math.random() * 6.2832, x = Math.cos(a) * d, y = Math.sin(a) * d;
+        if (galaxies.every(function (g) { return Math.hypot(x - g.cx, y - g.cy) >= Math.max(g.R, g.bound) + est + 400; })) return { x: x, y: y };
+      }
+    }
+  }
+  function newGalaxy(text) {
+    var target = MIN_NODES + Math.floor(Math.random() * (MAX_NODES - MIN_NODES + 1));
+    var sh = makeShape(), est = 55 * Math.sqrt(target) * Math.max(sh.sx, sh.sy) * (1 + sh.amp) * 1.15, c = placeCenter(est);
+    var g = { id: galaxies.length, seed: text, cx: c.x, cy: c.y, bound: est, target: target, est: est / 1.15 / Math.max(sh.sx, sh.sy) / (1 + sh.amp), sh: sh, V: 0, R: 100, done: false, list: [], queue: [], qh: 0 };
+    galaxies.push(g);
+    var s = addNode(text, "seed", null, 0, g);
+    seen[text] = 1;
+    extractWords(text).forEach(function (w) {
+      if (!seen[w]) { seen[w] = 1; g.queue.push(addNode(w, "assoc", s.id, 1, g).id); }
+    });
+    userInteracted = false;
+    needsRedraw = true;
+    return g;
   }
 
   function autoFit() {
-    if (!nodes.length || userInteracted) return;
-    var R = galaxyR + 120;
-    var s = Math.min((window.innerWidth - 120) / (R * 2), (window.innerHeight - 120) / (R * 2));
-    view.scale = Math.max(0.0015, Math.min(s, 1.1));
-    view.x = window.innerWidth / 2;
-    view.y = window.innerHeight / 2;
+    if (!galaxies.length || userInteracted) return;
+    var R = 200;
+    galaxies.forEach(function (g) { R = Math.max(R, Math.hypot(g.cx, g.cy) + g.R); });
+    R += 150;
+    var s = Math.max(0.00005, Math.min((window.innerWidth - 120) / (R * 2), (window.innerHeight - 120) / (R * 2), 1.1));
+    zoomAnim = { t: s, ax: window.innerWidth / 2, ay: window.innerHeight / 2, wx: 0, wy: 0 };
+    if (!nodes.length || stats.nodes < 2) { view.scale = s; view.x = window.innerWidth / 2; view.y = window.innerHeight / 2; }
   }
 
-  // ---------- 描画（高速化版） ----------
-  var needsRedraw = true;
-  var lastFrameTime = 0;
-
+  // ---------- 描画 ----------
   function render(timestamp) {
-    // インタラクション中は毎フレーム、静止時は必要時のみ描画してカクつきを抑制
-    if (!needsRedraw && (timestamp - lastFrameTime < 32)) {
-      requestAnimationFrame(render);
-      return;
+    if (!needsRedraw && (timestamp - lastFrameTime < 32)) { requestAnimationFrame(render); return; }
+    lastFrameTime = timestamp || 0; needsRedraw = false;
+    if (zoomAnim) {
+      var ratio = zoomAnim.t / view.scale;
+      if (Math.abs(Math.log(ratio)) < 0.003) { view.scale = zoomAnim.t; } else { view.scale *= Math.pow(ratio, 0.22); needsRedraw = true; }
+      view.x = zoomAnim.ax - zoomAnim.wx * view.scale; view.y = zoomAnim.ay - zoomAnim.wy * view.scale;
+      if (!needsRedraw) zoomAnim = null;
     }
-    lastFrameTime = timestamp || 0;
-    needsRedraw = false;
-
-    var theme = THEME[currentPhase];
-    var w = window.innerWidth;
-    var h = window.innerHeight;
-
-    ctx.save();
-    ctx.scale(dpr, dpr);
-    ctx.fillStyle = theme.bg;
-    ctx.fillRect(0, 0, w, h);
-
-    if (phase === "running" || phase === "ended") {
-      ctx.save();
-      ctx.translate(view.x, view.y);
-      ctx.scale(view.scale, view.scale);
-
-      var invScale = 1 / view.scale;
-      var margin = 180 * invScale;
-      var screenL = -view.x * invScale - margin;
-      var screenR = (w - view.x) * invScale + margin;
-      var screenT = -view.y * invScale - margin;
-      var screenB = (h - view.y) * invScale + margin;
-
-      // 1. 接続線（細く・控えめに描画して文字の可読性を優先）
-      ctx.lineWidth = Math.max(0.4, 0.7 * invScale);
-      ctx.strokeStyle = theme.line;
-      ctx.globalAlpha = 0.55;
-      ctx.beginPath();
-      var lineCount = 0;
-      for (var i = 1; i < nodes.length; i++) {
-        var n = nodes[i];
-        var p = nodes[n.parentId - 1];
-        if (!p) continue;
-        if ((n.x < screenL && p.x < screenL) || (n.x > screenR && p.x > screenR) ||
-            (n.y < screenT && p.y < screenT) || (n.y > screenB && p.y > screenB)) continue;
-
-        var mx = (p.x + n.x) * 0.5 + (n.y - p.y) * 0.06;
-        var my = (p.y + n.y) * 0.5 - (n.x - p.x) * 0.06;
-        ctx.moveTo(p.x, p.y);
-        ctx.quadraticCurveTo(mx, my, n.x, n.y);
-        lineCount++;
-        if (lineCount > 7000) break;
-      }
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-
-      // 2. ノード描画（ctx.save/restore を減らして高速化）
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      for (var j = 0; j < nodes.length; j++) {
-        var node = nodes[j];
-        if (node.x < screenL || node.x > screenR || node.y < screenT || node.y > screenB) continue;
-
-        if (node.alpha < 1) {
-          node.alpha = Math.min(1, node.alpha + 0.25);
-          needsRedraw = true; // フェード中は再描画
+    var theme = THEME[currentPhase], w = window.innerWidth, h = window.innerHeight;
+    ctx.save(); ctx.scale(dpr, dpr);
+    ctx.fillStyle = theme.bg; ctx.fillRect(0, 0, w, h);
+    if (phase !== "input") {
+      ctx.save(); ctx.translate(view.x, view.y); ctx.scale(view.scale, view.scale);
+      var inv = 1 / view.scale, mg = 180 * inv;
+      var sL = -view.x * inv - mg, sR = (w - view.x) * inv + mg, sT = -view.y * inv - mg, sB = (h - view.y) * inv + mg;
+      var lineBudget = 7000;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      for (var gi = 0; gi < galaxies.length; gi++) {
+        var g = galaxies[gi], gr = Math.max(g.R, 100);
+        if (g.cx + gr < sL || g.cx - gr > sR || g.cy + gr < sT || g.cy - gr > sB) continue;
+        if (gr * view.scale < 70) {               // 遠景：銀河全体を円盤＋名前で表現
+          ctx.globalAlpha = 0.16; ctx.fillStyle = theme.text;
+          ctx.beginPath(); ctx.arc(g.cx, g.cy, gr, 0, 6.2832); ctx.fill();
+          ctx.globalAlpha = 1; ctx.font = "bold " + (12 * inv) + "px sans-serif";
+          ctx.fillText(g.seed, g.cx, g.cy);
+          continue;
         }
-
-        var color = theme[node.rel] || theme.text;
-        ctx.globalAlpha = node.alpha;
-        if (node.rel !== "seed" && view.scale < 0.2) {   // 遠景：文字が小さすぎる場合は点で表現
-          ctx.fillStyle = color;
-          var ds = Math.max(1.4, 4 * view.scale) * invScale * 0.5;
-          if (view.scale * 14 < 3) { ctx.fillRect(node.x - ds, node.y - ds, ds * 2, ds * 2); continue; }
-        }
-
-        if (node.rel === "seed") {
-          ctx.font = "bold 20px sans-serif";
-          ctx.fillStyle = theme.text;
-          ctx.fillText(node.word, node.x, node.y);
-          ctx.lineWidth = 2.2;
-          ctx.strokeStyle = theme.text;
+        var L = g.list;
+        if (view.scale > 0.03 && lineBudget > 0) {
+          ctx.lineWidth = Math.max(0.4, 0.7 * inv); ctx.strokeStyle = theme.line; ctx.globalAlpha = 0.55;
           ctx.beginPath();
-          ctx.moveTo(node.x - node.w / 2 + 6, node.y + 15);
-          ctx.lineTo(node.x + node.w / 2 - 6, node.y + 15);
-          ctx.stroke();
-        } else {
-          // 関係タグは十分拡大したときだけ表示（重なり防止）
-          if (view.scale > 0.55) {
-            ctx.font = "8px monospace";
-            ctx.fillStyle = color;
-            ctx.globalAlpha = node.alpha * 0.45;
-            ctx.fillText(REL_TAG[node.rel] || "", node.x, node.y - 13);
-            ctx.globalAlpha = node.alpha;
+          for (var i = 1; i < L.length && lineBudget > 0; i++) {
+            var n = L[i], p = nodes[n.parentId - 1];
+            if (!p) continue;
+            if ((n.x < sL && p.x < sL) || (n.x > sR && p.x > sR) || (n.y < sT && p.y < sT) || (n.y > sB && p.y > sB)) continue;
+            ctx.moveTo(p.x, p.y);
+            ctx.quadraticCurveTo((p.x + n.x) * 0.5 + (n.y - p.y) * 0.06, (p.y + n.y) * 0.5 - (n.x - p.x) * 0.06, n.x, n.y);
+            lineBudget--;
           }
-          ctx.font = (node.rel === "hyper" ? "bold " : "") + "14px sans-serif";
-          ctx.fillStyle = color;
-          ctx.fillText(node.word, node.x, node.y);
+          ctx.stroke(); ctx.globalAlpha = 1;
         }
+        var tiny = view.scale * 14 < 3;
+        for (var j = 0; j < L.length; j++) {
+          var node = L[j];
+          if (node.x < sL || node.x > sR || node.y < sT || node.y > sB) continue;
+          if (node.alpha < 1) { node.alpha = Math.min(1, node.alpha + 0.25); needsRedraw = true; }
+          var color = theme[node.rel] || theme.text;
+          ctx.globalAlpha = node.alpha;
+          if (node.rel === "seed") {
+            ctx.font = "bold 20px sans-serif"; ctx.fillStyle = theme.text; ctx.fillText(node.word, node.x, node.y);
+            ctx.lineWidth = 2.2; ctx.strokeStyle = theme.text; ctx.beginPath();
+            ctx.moveTo(node.x - node.w / 2 + 6, node.y + 15); ctx.lineTo(node.x + node.w / 2 - 6, node.y + 15); ctx.stroke();
+          } else if (tiny) {
+            var ds = Math.max(1.4, 4 * view.scale) * inv * 0.5;
+            ctx.fillStyle = color; ctx.fillRect(node.x - ds, node.y - ds, ds * 2, ds * 2);
+          } else {
+            if (view.scale > 0.55) {
+              ctx.font = "8px monospace"; ctx.fillStyle = color; ctx.globalAlpha = node.alpha * 0.45;
+              ctx.fillText(REL_TAG[node.rel] || "", node.x, node.y - 13); ctx.globalAlpha = node.alpha;
+            }
+            ctx.font = (node.rel === "hyper" ? "bold " : "") + "14px sans-serif";
+            ctx.fillStyle = color; ctx.fillText(node.word, node.x, node.y);
+          }
+        }
+        ctx.globalAlpha = 1;
       }
-      ctx.globalAlpha = 1;
       ctx.restore();
     }
-
     ctx.restore();
     requestAnimationFrame(render);
   }
   requestAnimationFrame(render);
+  function markDirty() { needsRedraw = true; lastInteract = Date.now(); }
 
-  // インタラクション時に再描画フラグを立てる
-  function markDirty() { needsRedraw = true; }
-
-  // ---------- 無限拡大言語宇宙の生成ループ（時間分割で高速・深度上限なし） ----------
-  var MAX_NODES = 40000;   // 最低6,000以上。性能上の安全上限
-  var BRANCH_MIN = 9, BRANCH_VAR = 7;   // 各ノードから生成する関連語数（9〜15）
-
+  // ---------- 生成ループ（複数銀河を同時進行） ----------
+  var hudT = 0, mcCb = null, mc = typeof MessageChannel === "function" ? new MessageChannel() : null;
+  if (mc) mc.port1.onmessage = function () { var f = mcCb; mcCb = null; if (f) f(); };
+  function defer(f) { if (mc) { mcCb = f; mc.port2.postMessage(0); } else setTimeout(f, 0); }   // setTimeoutの4ms制限を回避
   function tick() {
     if (!running) return;
-    var t0 = performance.now();
-    while (running && performance.now() - t0 < 24) {
-      if (nodes.length >= MAX_NODES) { setStatus("言語宇宙 完成 · esc で終了"); running = false; break; }
-      if (!queue.length) queue.push(nodes[Math.floor(Math.random() * nodes.length)].id);
-      var qi = Math.floor(Math.random() * Math.min(queue.length, 700));
-      var node = nodes[queue.splice(qi, 1)[0] - 1];
-      var related = expandWord(node.word, BRANCH_MIN + Math.floor(Math.random() * BRANCH_VAR));
-      for (var i = 0; i < related.length; i++) {
-        var item = related[i];
-        if (seen[item.word]) continue;
-        seen[item.word] = 1;
-        queue.push(addNode(item.word, item.rel, node.id, node.depth + 1).id);
-        if (node.depth + 1 > stats.depth) stats.depth = node.depth + 1;
+    var t0 = performance.now(), act = galaxies.filter(function (g) { return !g.done; }), gi = 0;
+    var budget = (Date.now() - lastInteract < 600) ? 7 : 34;   // 操作中は軽く、放置中は全力
+    while (act.length && performance.now() - t0 < budget) {
+      var g = act[gi++ % act.length];
+      for (var s = 0; s < 8; s++) {
+        if (g.list.length >= g.target) { g.done = true; act = act.filter(function (x) { return x !== g; }); break; }
+        if (g.qh >= g.queue.length) { g.queue.length = 0; g.qh = 0; g.queue.push(g.list[Math.floor(Math.random() * g.list.length)].id); }
+        var win = Math.min(g.queue.length - g.qh, 700), qi = g.qh + Math.floor(Math.random() * win);
+        var id = g.queue[qi]; g.queue[qi] = g.queue[g.qh]; g.qh++;
+        if (g.qh > 60000) { g.queue = g.queue.slice(g.qh); g.qh = 0; }
+        var node = nodes[id - 1];
+        var rel = expandWord(node.word, BRANCH_MIN + Math.floor(Math.random() * BRANCH_VAR));
+        for (var i = 0; i < rel.length; i++) {
+          var it = rel[i];
+          if (seen[it.word] || g.list.length >= g.target) continue;
+          seen[it.word] = 1;
+          g.queue.push(addNode(it.word, it.rel, node.id, node.depth + 1, g).id);
+          if (node.depth + 1 > stats.depth) stats.depth = node.depth + 1;
+        }
       }
     }
     stats.nodes = nodes.length;
     stats.elapsed = Math.floor((Date.now() - startTs) / 1000);
-    hudEl.innerHTML = "ELAPSED " + fmtTime(stats.elapsed) + "<br>NODES " + stats.nodes + "<br>DEPTH " + stats.depth + "<br>QUEUE " + queue.length;
-    autoFit();
-    needsRedraw = true;
-    if (running) setTimeout(tick, 0);
+    if (Date.now() - hudT > 250) { hudT = Date.now(); hudEl.innerHTML = "ELAPSED " + fmtTime(stats.elapsed) + "<br>GALAXIES " + galaxies.length + "<br>NODES " + stats.nodes +
+      "<br>DEPTH " + stats.depth + "<br>ACTIVE " + act.length + " / " + galaxies.length; }
+    if (!act.length && Date.now() > flashUntil) setStatus("全ての言語銀河が完成 · 「+ 銀河」で新しい銀河を追加");
+    else if (act.length && Date.now() > flashUntil) setStatus("");
+    autoFit(); needsRedraw = true;
+    if (running) { if (act.length) defer(tick); else setTimeout(tick, 300); }
   }
-
   function fmtTime(s) {
-    var h = String(Math.floor(s / 3600)).padStart(2, "0");
-    var m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
-    var ss = String(s % 60).padStart(2, "0");
-    return h + ":" + m + ":" + ss;
+    return String(Math.floor(s / 3600)).padStart(2, "0") + ":" + String(Math.floor((s % 3600) / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
   }
 
-  function start() {
-    if (phase !== "input") return;
+  // ---------- 入力UI ----------
+  function hideGenesis() { gOpen = false; genesisEl.style.opacity = "0"; setTimeout(function () { if (!gOpen) { genesisEl.style.display = "none"; genesisEl.classList.remove("veil"); } }, 800); }
+  function showGenesis() { gOpen = true; if (phase === "running") genesisEl.classList.add("veil"); genesisEl.style.display = "flex"; setTimeout(function () { if (gOpen) { genesisEl.style.opacity = "1"; sentenceEl.focus(); } }, 10); }
+  function resetUniverse() { nodes = []; galaxies = []; seen = {}; idCounter = 0; grid = new Map(); stats = { elapsed: 0, nodes: 0, depth: 0 }; }
+  function begin() {
+    phase = "running"; running = true; hideGenesis();
+    hudEl.style.display = "block"; barEl.style.display = "flex"; finalEl.style.display = "none";
+    startTs = Date.now() - stats.elapsed * 1000; needsRedraw = true; tick();
+  }
+  function submit() {
     var text = sentenceEl.value.trim();
     if (!text) return;
-    seedText = text;
-
-    genesisEl.style.opacity = "0";
-    setTimeout(function () { genesisEl.style.display = "none"; }, 800);
-    hudEl.style.display = "block";
-    escEl.style.display = "block";
-
-    nodes = []; queue = []; seen = {}; idCounter = 0;
-    stats = { elapsed: 0, nodes: 0, depth: 0 };
-    userInteracted = false;
-    grid = new Map(); galaxyR = 100;
-    needsRedraw = true;
-
-    // シードを完全に原点（銀河中心）に置く
-    view.x = window.innerWidth / 2;
-    view.y = window.innerHeight / 2;
-    view.scale = 0.85;
-
-    var seedNode = addNode(text, "seed", null, 0);
-    seen[text] = 1;
-
-    var extracted = extractWords(text);
-    for (var i = 0; i < extracted.length; i++) {
-      var w = extracted[i];
-      if (!seen[w]) {
-        seen[w] = 1;
-        var sub = addNode(w, "assoc", seedNode.id, 1);
-        queue.push(sub.id);
-      }
-    }
-
-    stats.nodes = nodes.length;
-    autoFit();
-
-    phase = "running";
-    running = true;
-    startTs = Date.now();
-    tick();
+    sentenceEl.value = "";
+    if (phase === "input") { resetUniverse(); newGalaxy(text); autoFit(); begin(); }
+    else if (phase === "running") { newGalaxy(text); hideGenesis(); }
   }
-
   sentenceEl.addEventListener("keydown", function (e) {
-    if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); start(); }
+    if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); submit(); }
   });
 
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, function (c) {
-      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  // ---------- 保存・読込（IndexedDB ＋ ファイル） ----------
+  function serialize() {
+    var arr = new Array(nodes.length);
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      arr[i] = [n.word, RELS.indexOf(n.rel), n.parentId, n.depth, Math.round(n.x), Math.round(n.y), n.g, Math.round(n.u * 1000) / 1000, Math.round(n.v)];
+    }
+    return JSON.stringify({
+      v: 1, elapsed: stats.elapsed, depth: stats.depth,
+      galaxies: galaxies.map(function (g) { return { seed: g.seed, cx: g.cx, cy: g.cy, target: g.target, est: g.est, bound: g.bound, sh: g.sh, R: g.R, done: g.done, queue: g.queue.slice(g.qh) }; }),
+      nodes: arr
     });
   }
+  function restore(json) {
+    var d = JSON.parse(json);
+    resetUniverse();
+    d.galaxies.forEach(function (gd, i) {
+      galaxies.push({ id: i, seed: gd.seed, cx: gd.cx, cy: gd.cy, target: gd.target, est: gd.est, bound: gd.bound || gd.est * 1.3, sh: gd.sh || DEFAULT_SH, V: 0, R: gd.R, done: gd.done, list: [], queue: gd.queue, qh: 0 });
+    });
+    d.nodes.forEach(function (a) {
+      var g = galaxies[a[6]], rel = RELS[a[1]], u = a[7] !== undefined ? a[7] : Math.atan2(a[5] - g.cy, a[4] - g.cx), v = a[8] !== undefined ? a[8] : Math.hypot(a[4] - g.cx, a[5] - g.cy), n = makeNode(a[0], rel, a[2], a[3], a[4], a[5], g, u, v);
+      n.alpha = 1; seen[a[0]] = 1;
+    });
+    galaxies.forEach(function (g, i) { g.R = d.galaxies[i].R; });
+    stats.elapsed = d.elapsed || 0; stats.depth = d.depth || 0; userInteracted = false;
+    autoFit(); begin();
+  }
+  function idb(mode, fn) {
+    return new Promise(function (res, rej) {
+      var rq = indexedDB.open("firstsentence", 1);
+      rq.onupgradeneeded = function () { rq.result.createObjectStore("u"); };
+      rq.onerror = function () { rej(rq.error); };
+      rq.onsuccess = function () {
+        var tx = rq.result.transaction("u", mode), r = fn(tx.objectStore("u"));
+        tx.oncomplete = function () { res(r && r.result); }; tx.onerror = function () { rej(tx.error); };
+      };
+    });
+  }
+  function saveUniverse() {
+    if (!nodes.length) return;
+    flash("保存中…");
+    idb("readwrite", function (st) { return st.put(serialize(), "universe"); })
+      .then(function () { flash("言語宇宙を保存しました（" + galaxies.length + " 銀河 / " + nodes.length + " ノード）"); })
+      .catch(function () { flash("保存に失敗しました。「書出」でファイル保存してください"); });
+  }
+  function exportUniverse() {
+    if (!nodes.length) return;
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([serialize()], { type: "application/json" }));
+    a.download = "language-universe.json"; a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+  }
+  document.getElementById("load-idb").addEventListener("click", function () {
+    idb("readonly", function (st) { return st.get("universe"); })
+      .then(function (s) { if (s) restore(s); else document.getElementById("load-idb").textContent = "No saved galaxy found"; })
+      .catch(function () { document.getElementById("load-idb").textContent = "Could not open the galaxy"; });
+  });
+  document.getElementById("load-file").addEventListener("click", function () { fileEl.click(); });
+  fileEl.addEventListener("change", function () {
+    var f = fileEl.files[0]; if (!f) return;
+    var r = new FileReader(); r.onload = function () { restore(r.result); }; r.readAsText(f);
+  });
+  document.getElementById("b-new").addEventListener("click", showGenesis);
+  document.getElementById("b-save").addEventListener("click", saveUniverse);
+  document.getElementById("b-exp").addEventListener("click", exportUniverse);
+  document.getElementById("b-end").addEventListener("click", endSession);
 
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
+  }
   function endSession() {
     if (phase !== "running") return;
-    running = false;
-    phase = "ended";
-    hudEl.style.display = "none";
-    escEl.style.display = "none";
-    setStatus("");
-
+    running = false; phase = "ended"; gOpen = false; genesisEl.style.display = "none";
+    hudEl.style.display = "none"; barEl.style.display = "none"; setStatus("");
     finalEl.style.display = "flex";
-    finalEl.innerHTML =
-      '<div class="meta">' +
-        "<div>SESSION 001</div>" +
-        "<div>INPUT 「" + escapeHtml(seedText) + "」</div>" +
-        '<div style="height:1.2em"></div>' +
-        "<div>ELAPSED " + fmtTime(stats.elapsed) + "</div>" +
-        "<div>NODES " + stats.nodes + "</div>" +
-        "<div>DEPTH " + stats.depth + "</div>" +
-      "</div>" +
-      '<a class="top-link" id="top-link">TOP</a>';
-    
-    var topLink = document.getElementById("top-link");
-    if (topLink) topLink.addEventListener("click", function () { location.reload(); });
+    var ln = 'class="top-link" style="margin-top:1.6em;display:block"';
+    finalEl.innerHTML = '<div class="meta"><div>LANGUAGE UNIVERSE</div><div style="height:1.2em"></div>' +
+      "<div>GALAXIES " + galaxies.length + "</div><div>NODES " + stats.nodes + "</div><div>DEPTH " + stats.depth + "</div>" +
+      "<div>ELAPSED " + fmtTime(stats.elapsed) + "</div></div>" +
+      "<a " + ln + ' id="f-cont">CONTINUE</a><a ' + ln + ' id="f-save">SAVE</a><a ' + ln + ' id="f-exp">EXPORT</a><a ' + ln + ' id="f-top">TOP</a>';
+    document.getElementById("f-cont").onclick = begin;
+    document.getElementById("f-save").onclick = saveUniverse;
+    document.getElementById("f-exp").onclick = exportUniverse;
+    document.getElementById("f-top").onclick = function () { location.reload(); };
   }
-
-  escEl.addEventListener("click", endSession);
   window.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && phase === "running") endSession();
+    if (e.key !== "Escape") return;
+    if (phase === "running" && gOpen) hideGenesis();
+    else if (phase === "running") endSession();
   });
 })();
 </script>
