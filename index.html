@@ -484,17 +484,27 @@
     [1.3,1,5,.3,2,.5,.3],[1,1,6,.3,3,0,.45],[1,1,2,.25,2,.8,0],[1.4,.9,3,.3,2,-.3,0],[.6,1.8,4,.25,2,.2,0]
   ];
   var DEFAULT_SH = { sx: 1, sy: 1, k: 0, amp: 0, n: 2, sw: 0.42, hole: 0, cr: 1, sr: 0, ph: 0 };
-  function makeShape() {
-    var P = SHAPES[Math.floor(Math.random() * SHAPES.length)];
-    var j = function () { return 0.88 + Math.random() * 0.24; };
-    var sx = P[0] * j(), sy = P[1] * j(), q = Math.sqrt(sx * sy), rot = Math.random() * 6.2832;
-    return { sx: sx / q, sy: sy / q, k: P[2], amp: P[3] * j(), n: P[4] === 2 ? 2 : P[4] * j(),
-      sw: P[5] * j() * (Math.random() < 0.5 ? 1 : -1), hole: P[6] * j(), cr: Math.cos(rot), sr: Math.sin(rot), ph: Math.random() * 6.2832 };
+  function makeShape() {   // その場で完全ランダム：ランダムな本数・次数・位相の輪郭ゆらぎ＋ランダムな渦巻きのねじれ＋縦横比＋空洞
+    var R = Math.random, rot = R() * 6.2832, asp = Math.exp((R() - 0.5) * 2 * Math.log(2.6));
+    var H = 2 + Math.floor(R() * 6), hs = [], amp = 0;
+    for (var i = 0; i < H; i++) {
+      var k = 1 + Math.floor(Math.pow(R(), 1.3) * 11), a = (0.04 + R() * 0.32) / Math.sqrt(1 + k * 0.25);
+      hs.push([k, a, R() * 6.2832]); amp += a;
+    }
+    if (amp > 0.8) { var f = 0.8 / amp; hs.forEach(function (h) { h[1] *= f; }); amp = 0.8; }
+    return { sx: Math.sqrt(asp), sy: 1 / Math.sqrt(asp), k: 0, amp: amp, ph: 0, k2: 1, a2: 0, p2: 0, hs: hs,
+      tw: (R() - 0.5) * (R() < 0.7 ? 5 : 1.2),
+      n: R() < 0.5 ? 2 : Math.exp(Math.log(0.5) + R() * Math.log(8)),
+      sw: (R() - 0.5) * 1.8, hole: R() < 0.3 ? R() * 0.6 : 0, cr: Math.cos(rot), sr: Math.sin(rot) };
   }
   var _x = 0, _y = 0;
   function shapeXY(g, ang, rr) {
-    var s = g.sh, n = s.n, c = Math.cos(ang), sn = Math.sin(ang);
-    var M = (1 + s.amp * Math.cos(s.k * ang + s.ph)) / (n === 2 ? 1 : Math.pow(Math.pow(Math.abs(c), n) + Math.pow(Math.abs(sn), n), 1 / n));
+    var s = g.sh, n = s.n, c = Math.cos(ang), sn = Math.sin(ang), m0;
+    if (s.hs) {
+      var aa = ang + s.tw * rr / g.est; m0 = 1;
+      for (var i = 0; i < s.hs.length; i++) m0 += s.hs[i][1] * Math.cos(s.hs[i][0] * aa + s.hs[i][2]);
+    } else m0 = 1 + s.amp * Math.cos(s.k * ang + s.ph) + (s.a2 || 0) * Math.cos(s.k2 * ang + s.p2);
+    var M = m0 / (n === 2 ? 1 : Math.pow(Math.pow(Math.abs(c), n) + Math.pow(Math.abs(sn), n), 1 / n));
     var x = M * rr * c * s.sx, y = M * rr * sn * s.sy;
     _x = g.cx + x * s.cr - y * s.sr; _y = g.cy + x * s.sr + y * s.cr;
   }
@@ -680,11 +690,61 @@
     }
     return { day: day, night: night };
   }
-  var PALS = PALETTES.map(buildPalette);
+  function makeStops() {   // 銀河ごとに色相・彩度・明度の流れを完全ランダムに生成
+    var R = Math.random, n = 3 + Math.floor(R() * 4), h0 = R() * 360, dir = R() < 0.5 ? 1 : -1, span = 40 + R() * 320;
+    var s0 = 0.45 + R() * 0.55, rev = R() < 0.2, L0 = 0.78 + R() * 0.2, L1 = 0.28 + R() * 0.2, out = [];
+    for (var i = 0; i < n; i++) {
+      var f = i / (n - 1);
+      out.push([h0 + dir * span * f + (R() - 0.5) * 50, Math.min(1, Math.max(0.35, s0 + (R() - 0.5) * 0.4)),
+        (rev ? L1 + (L0 - L1) * f : L0 + (L1 - L0) * f) + (R() - 0.5) * 0.08]);
+    }
+    return out;
+  }
+  function buildPal(stops) {
+    var night = [], day = [];
+    for (var i = 0; i < PAL_N; i++) {
+      var f = i / (PAL_N - 1) * (stops.length - 1), k = Math.min(stops.length - 2, Math.floor(f)), w = f - k, a = stops[k], b = stops[k + 1];
+      var h = (((a[0] + (b[0] - a[0]) * w) % 360) + 360) % 360, s = a[1] + (b[1] - a[1]) * w, l = a[2] + (b[2] - a[2]) * w;
+      night.push("hsl(" + Math.round(h) + "," + Math.round(s * 100) + "%," + Math.round(l * 100) + "%)");
+      day.push("hsl(" + Math.round(h) + "," + Math.round(Math.min(1, s * 0.9 + 0.1) * 100) + "%," + Math.round((0.3 + 0.3 * l) * 100) + "%)");
+    }
+    return { day: day, night: night };
+  }
+  // 本物の銀河の色：古い星の黄橙の核 → 若い星の青白い腕、桃色のHII領域、暗い塵の筋。配置は銀河ごとの乱数ノイズ＋星ごとの乱数で、細部まで毎回違う
+  function hash(n) { n = Math.imul(n ^ (n >>> 16), 0x45d9f3b); n = Math.imul(n ^ (n >>> 16), 0x45d9f3b); n ^= n >>> 16; return (n >>> 0) / 4294967296; }
+  function vnoise(x, y, sd) {
+    var xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi;
+    fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy);
+    function h(a, b) { return hash((Math.imul(a, 374761393) ^ Math.imul(b, 668265263) ^ sd) | 0); }
+    var a = h(xi, yi), b = h(xi + 1, yi), c = h(xi, yi + 1), d = h(xi + 1, yi + 1);
+    return (a + (b - a) * fx) * (1 - fy) + (c + (d - c) * fx) * fy;
+  }
+  function makeColorModel() {
+    var R = Math.random;
+    return { s: Math.floor(R() * 1e9), coreH: 18 + R() * 42, coreS: 0.5 + R() * 0.5, coreL: 0.7 + R() * 0.22,
+      outH: 188 + R() * 55, outS: 0.5 + R() * 0.5, outL: 0.5 + R() * 0.22,
+      y: Math.pow(R(), 0.7), hii: R() * 0.55, hiiH: 305 + R() * 60, dust: R() * 0.6,
+      f1: 0.8 + R() * 2.4, f2: 4 + R() * 9, tw: (R() - 0.5) * 6, ox: R() * 100, oy: R() * 100 };
+  }
+  function colorFor(g, u, v, id) {
+    var c = g.cm, t = Math.min(1.05, v / (g.est * 1.1)), x = Math.cos(u) * t, y = Math.sin(u) * t, sd = c.s;
+    var r1 = hash(id * 7919 + sd), r2 = hash(id * 104729 + sd + 1), r3 = hash(id * 1299709 + sd + 2), r4 = hash(id * 15485863 + sd + 3);
+    var n1 = vnoise(x * c.f1 * 3 + c.ox, y * c.f1 * 3 + c.oy, sd), n2 = vnoise(x * c.f2 + c.ox, y * c.f2 + c.oy, sd + 7);
+    var arm = 0.5 + 0.5 * Math.sin(g.ck * u - c.tw * t + g.cph);
+    var young = Math.max(0, Math.min(1, c.y * (0.15 + 1.1 * t) * (0.45 + arm * 0.7 + (n1 - 0.5) * 1.1) + (r1 - 0.5) * 0.45));
+    var h, s, l = c.coreL - 0.3 * Math.pow(t, 0.8);
+    if (young < 0.5) { h = c.coreH + (r2 - 0.5) * 26; s = c.coreS * (0.55 + 0.45 * (1 - young * 2) * 0.6 + 0.3); }
+    else { h = c.outH + (r2 - 0.5) * 34; s = c.outS * (0.5 + 0.5 * (young * 2 - 1)); l = c.outL + (r3 - 0.5) * 0.18 + (1 - t) * 0.12; }
+    if (n2 > 1 - c.hii * 0.7 && t > 0.2 && r4 > 0.35) { h = c.hiiH + (r3 - 0.5) * 30; s = 0.75 + r2 * 0.25; l = 0.55 + r1 * 0.15; }   // HII領域
+    if (vnoise(x * c.f1 * 5 + c.oy, y * c.f1 * 5 + c.ox, sd + 13) < c.dust * 0.4 && t > 0.1) { l *= 0.5 + r3 * 0.2; s *= 0.6; h = 15 + r2 * 20; }   // 塵の筋
+    if (r4 > 0.985) { l = 0.9 + r1 * 0.08; s = 0.3 + r2 * 0.5; }   // きらめく明るい星
+    l += (r3 - 0.5) * 0.14; s += (r1 - 0.5) * 0.22; h += (r4 - 0.5) * 10;
+    s = Math.max(0.15, Math.min(1, s)); l = Math.max(0.16, Math.min(0.95, l)); h = ((h % 360) + 360) % 360;
+    return currentPhase === "day" ? "hsl(" + Math.round(h) + "," + Math.round(Math.min(1, s * 0.9 + 0.1) * 100) + "%," + Math.round((0.3 + 0.3 * l) * 100) + "%)"
+      : "hsl(" + Math.round(h) + "," + Math.round(s * 100) + "%," + Math.round(l * 100) + "%)";
+  }
   function colorIdx(g, u, v, id) {
-    var jit = ((id * 2654435761) % 1000) / 1000 - 0.5;
     var tt = Math.pow(Math.min(1, v / (g.est * 1.1)), 0.85);
-    tt += 0.09 * Math.sin(g.ck * u + g.cph) + jit * 0.07;           // 渦の腕に沿った淡い濃淡（継ぎ目なし）
     return Math.max(0, Math.min(PAL_N - 1, Math.floor(tt * (PAL_N - 1))));
   }
   function newBuckets() { var b = []; for (var i = 0; i < PAL_N; i++) b.push([]); return b; }
@@ -697,6 +757,7 @@
     if (d > g.R) g.R = d;
     if (v > g.V) g.V = v;
     node.ci = rel === "seed" ? 0 : colorIdx(g, u, v, node.id);
+    node.col = rel === "seed" ? null : colorFor(g, u, v, node.id);
     if (rel !== "seed" && g.list.length % g.stride === 0) g.buckets[node.ci].push(node);   // 遠景用の間引き点群
     nodes.push(node); g.list.push(node);
     return node;
@@ -719,8 +780,9 @@
   }
   function newGalaxy(text) {
     var target = MIN_NODES + Math.floor(Math.random() * (MAX_NODES - MIN_NODES + 1));
-    var sh = makeShape(), est = 55 * Math.sqrt(target) * Math.max(sh.sx, sh.sy) * (1 + sh.amp) * 1.15, c = placeCenter(est);
-    var g = { id: galaxies.length, seed: text, cx: c.x, cy: c.y, bound: est, target: target, est: est / 1.15 / Math.max(sh.sx, sh.sy) / (1 + sh.amp), sh: sh, V: 0, R: 100, done: false, pal: Math.floor(Math.random() * PALETTES.length), ck: 2 + Math.floor(Math.random() * 3), cph: Math.random() * 6.2832, stride: Math.max(1, Math.floor(target / 7000)), buckets: newBuckets(), list: [], queue: [], qh: 0 };
+    var sh = makeShape(), est = 55 * Math.sqrt(target) * Math.max(sh.sx, sh.sy) * (1 + sh.amp + (sh.a2 || 0)) * 1.15, c = placeCenter(est);
+    var g = { id: galaxies.length, seed: text, cx: c.x, cy: c.y, bound: est, target: target, est: est / 1.15 / Math.max(sh.sx, sh.sy) / (1 + sh.amp + (sh.a2 || 0)), sh: sh, V: 0, R: 100, done: false, stops: makeStops(), cm: makeColorModel(), pals: null, ck: 2 + Math.floor(Math.random() * 3), cph: Math.random() * 6.2832, stride: Math.max(1, Math.floor(target / 7000)), buckets: newBuckets(), list: [], queue: [], qh: 0 };
+    g.pals = buildPal(g.stops);
     galaxies.push(g);
     var s = addNode(text, "seed", null, 0, g);
     seen[text] = 1;
@@ -765,13 +827,12 @@
         var g = galaxies[gi], gr = Math.max(g.R, 100);
         if (g.cx + gr < sL || g.cx - gr > sR || g.cy + gr < sT || g.cy - gr > sB) continue;
         if (gr * view.scale < 70) {               // 遠景：銀河の形を点群（間引き）で描く
-          var sz = 1.8 * inv, PAL = PALS[g.pal][currentPhase];
+          var sz = 1.8 * inv, PAL = g.pals[currentPhase];
           ctx.globalAlpha = 0.9;
           for (var ci = 0; ci < PAL_N; ci++) {
             var bk = g.buckets[ci];
             if (!bk.length) continue;
-            ctx.fillStyle = PAL[ci];
-            for (var q = 0; q < bk.length; q++) ctx.fillRect(bk[q].x - sz / 2, bk[q].y - sz / 2, sz, sz);
+                        for (var q = 0; q < bk.length; q++) { ctx.fillStyle = bk[q].col; ctx.fillRect(bk[q].x - sz / 2, bk[q].y - sz / 2, sz, sz); }
           }
           ctx.globalAlpha = 1; ctx.fillStyle = theme.text;
           ctx.font = "bold " + (12 * inv) + "px sans-serif";
@@ -797,7 +858,7 @@
           var node = L[j];
           if (node.x < sL || node.x > sR || node.y < sT || node.y > sB) continue;
           if (node.alpha < 1) { node.alpha = Math.min(1, node.alpha + 0.25); needsRedraw = true; }
-          var color = node.rel === "seed" ? theme.text : PALS[g.pal][currentPhase][node.ci];
+          var color = node.rel === "seed" ? theme.text : node.col;
           ctx.globalAlpha = node.alpha;
           if (node.rel === "seed") {
             ctx.font = "bold 20px sans-serif"; ctx.fillStyle = theme.text; ctx.fillText(node.word, node.x, node.y);
@@ -894,7 +955,7 @@
     }
     return JSON.stringify({
       v: 1, elapsed: stats.elapsed, depth: stats.depth,
-      galaxies: galaxies.map(function (g) { return { seed: g.seed, cx: g.cx, cy: g.cy, target: g.target, est: g.est, bound: g.bound, sh: g.sh, pal: g.pal, ck: g.ck, cph: g.cph, R: g.R, done: g.done, queue: g.queue.slice(g.qh) }; }),
+      galaxies: galaxies.map(function (g) { return { seed: g.seed, cx: g.cx, cy: g.cy, target: g.target, est: g.est, bound: g.bound, sh: g.sh, stops: g.stops, cm: g.cm, ck: g.ck, cph: g.cph, R: g.R, done: g.done, queue: g.queue.slice(g.qh) }; }),
       nodes: arr
     });
   }
@@ -902,13 +963,13 @@
     var d = JSON.parse(json);
     resetUniverse();
     d.galaxies.forEach(function (gd, i) {
-      galaxies.push({ id: i, seed: gd.seed, cx: gd.cx, cy: gd.cy, target: gd.target, est: gd.est, bound: gd.bound || gd.est * 1.3, sh: gd.sh || DEFAULT_SH, V: 0, pal: gd.pal !== undefined ? gd.pal : Math.floor(Math.random() * PALETTES.length), ck: gd.ck || 3, cph: gd.cph || 0, stride: Math.max(1, Math.floor(gd.target / 7000)), buckets: newBuckets(), R: gd.R, done: gd.done, list: [], queue: gd.queue, qh: 0 });
+      galaxies.push({ id: i, seed: gd.seed, cx: gd.cx, cy: gd.cy, target: gd.target, est: gd.est, bound: gd.bound || gd.est * 1.3, sh: gd.sh || DEFAULT_SH, V: 0, stops: gd.stops || makeStops(), cm: gd.cm || makeColorModel(), pals: null, ck: gd.ck || 3, cph: gd.cph || 0, stride: Math.max(1, Math.floor(gd.target / 7000)), buckets: newBuckets(), R: gd.R, done: gd.done, list: [], queue: gd.queue, qh: 0 });
     });
     d.nodes.forEach(function (a) {
       var g = galaxies[a[6]], rel = RELS[a[1]], u = a[7] !== undefined ? a[7] : Math.atan2(a[5] - g.cy, a[4] - g.cx), v = a[8] !== undefined ? a[8] : Math.hypot(a[4] - g.cx, a[5] - g.cy), n = makeNode(a[0], rel, a[2], a[3], a[4], a[5], g, u, v);
       n.alpha = 1; seen[a[0]] = 1;
     });
-    galaxies.forEach(function (g, i) { g.R = d.galaxies[i].R; });
+    galaxies.forEach(function (g, i) { g.R = d.galaxies[i].R; g.pals = buildPal(g.stops); });
     stats.elapsed = d.elapsed || 0; stats.depth = d.depth || 0; userInteracted = false;
     autoFit(); begin();
   }
