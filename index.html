@@ -715,7 +715,7 @@
 
   // ---------- State ----------
   var nodes = [], galaxies = [], seen = {}, phase = "input", running = false, idCounter = 0, startTs = 0;
-  var MIN_NODES = 6000, MAX_NODES = 200000;   // 1銀河のノード数は この範囲でランダム決定
+  var MIN_NODES = 50000, MAX_NODES = 200000;   // 1銀河のノード数は この範囲でランダム決定
   var BRANCH_MIN = 9, BRANCH_VAR = 7;
   var RELS = ["seed", "syn", "hyper", "hypo", "assoc", "deriv"];
   var stats = { elapsed: 0, nodes: 0, depth: 0 };
