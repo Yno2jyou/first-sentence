@@ -646,18 +646,46 @@
     var hw = Math.max(tw, 22) / 2 + 4;
     return rel === "seed" ? { hw: hw, top: -14, bot: 18 } : { hw: hw, top: -17, bot: 9 };
   }
-  // ---------- 彩り：銀河ごとに固有の色相レンジを持ち、角度（渦の腕）と半径で色が移ろう ----------
-  var PAL_N = 48, PALS = { day: [], night: [] };
-  for (var pi = 0; pi < PAL_N; pi++) {
-    PALS.day.push("hsl(" + Math.round(pi * 360 / PAL_N) + ",74%,40%)");
-    PALS.night.push("hsl(" + Math.round(pi * 360 / PAL_N) + ",88%,68%)");
+  // ---------- 彩り：星雲のような繊細なグラデーション（中心の暖色の核 → 外縁の深い青紫） ----------
+  var PAL_N = 64;
+  var PALETTES = [
+    ["#fff1c9", "#ffb88a", "#e97aa8", "#8a6fd6", "#3d4fa8", "#1e2b66"],   // 星雲
+    ["#eafff3", "#8ff0c8", "#3fc1c9", "#4a7fd8", "#6a4fb8", "#2d2466"],   // オーロラ
+    ["#fff3d6", "#ffd27a", "#ff9a5a", "#e0577a", "#8e3f8f", "#3a2a66"],   // 残り火
+    ["#f2fbff", "#a6e3ff", "#5fb4f0", "#4b7bd1", "#4b4fae", "#231f5e"],   // 深海
+    ["#fff6f8", "#ffc9d9", "#f59bc0", "#b58bdc", "#7a8be0", "#3a4a96"],   // 桜霞
+    ["#f4ffe9", "#c7f09a", "#6fd18a", "#3aa59b", "#3a6fb0", "#233a7a"],   // 翠
+    ["#fff0f5", "#f6b6d8", "#c78be8", "#7f7bf0", "#4a58b8", "#202a66"],   // 薄暮
+    ["#fffbe6", "#f5dc8a", "#e9b36a", "#c9806e", "#8a5f9a", "#3a3a78"]    // 金砂
+  ];
+  function hex2rgb(h) { return [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)]; }
+  function rgb2hsl(c) {
+    var r = c[0] / 255, g = c[1] / 255, b = c[2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, h = 0, s = 0, d = mx - mn;
+    if (d) {
+      s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+      h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      h *= 60;
+    }
+    return [h, s, l];
   }
+  function buildPalette(stops) {
+    var night = [], day = [];
+    for (var i = 0; i < PAL_N; i++) {
+      var f = i / (PAL_N - 1) * (stops.length - 1), k = Math.min(stops.length - 2, Math.floor(f)), w = f - k;
+      var a = hex2rgb(stops[k]), b = hex2rgb(stops[k + 1]);
+      var c = [a[0] + (b[0] - a[0]) * w, a[1] + (b[1] - a[1]) * w, a[2] + (b[2] - a[2]) * w];
+      night.push("rgb(" + Math.round(c[0]) + "," + Math.round(c[1]) + "," + Math.round(c[2]) + ")");
+      var hsl = rgb2hsl(c);   // 昼（白背景）では明度を落として、核も沈まないように
+      day.push("hsl(" + Math.round(hsl[0]) + "," + Math.round(Math.min(1, hsl[1] * 0.9 + 0.1) * 100) + "%," + Math.round((0.3 + 0.3 * hsl[2]) * 100) + "%)");
+    }
+    return { day: day, night: night };
+  }
+  var PALS = PALETTES.map(buildPalette);
   function colorIdx(g, u, v, id) {
-    var f = u / 6.2832; f = f - Math.floor(f);
-    var jit = ((id * 2654435761) % 1000) / 1000;                       // 決定論的なゆらぎ
-    var h = g.h0 + g.hs * (f * 0.55 + Math.min(1, v / (g.est * 1.1)) * 0.45) + jit * 40;
-    h = ((h % 360) + 360) % 360;
-    return Math.floor(h / 360 * PAL_N) % PAL_N;
+    var jit = ((id * 2654435761) % 1000) / 1000 - 0.5;
+    var tt = Math.pow(Math.min(1, v / (g.est * 1.1)), 0.85);
+    tt += 0.09 * Math.sin(g.ck * u + g.cph) + jit * 0.07;           // 渦の腕に沿った淡い濃淡（継ぎ目なし）
+    return Math.max(0, Math.min(PAL_N - 1, Math.floor(tt * (PAL_N - 1))));
   }
   function newBuckets() { var b = []; for (var i = 0; i < PAL_N; i++) b.push([]); return b; }
   function makeNode(word, rel, parentId, depth, x, y, g, u, v) {
@@ -692,7 +720,7 @@
   function newGalaxy(text) {
     var target = MIN_NODES + Math.floor(Math.random() * (MAX_NODES - MIN_NODES + 1));
     var sh = makeShape(), est = 55 * Math.sqrt(target) * Math.max(sh.sx, sh.sy) * (1 + sh.amp) * 1.15, c = placeCenter(est);
-    var g = { id: galaxies.length, seed: text, cx: c.x, cy: c.y, bound: est, target: target, est: est / 1.15 / Math.max(sh.sx, sh.sy) / (1 + sh.amp), sh: sh, V: 0, R: 100, done: false, h0: Math.random() * 360, hs: [120, 200, 300, 420][Math.floor(Math.random() * 4)], stride: Math.max(1, Math.floor(target / 7000)), buckets: newBuckets(), list: [], queue: [], qh: 0 };
+    var g = { id: galaxies.length, seed: text, cx: c.x, cy: c.y, bound: est, target: target, est: est / 1.15 / Math.max(sh.sx, sh.sy) / (1 + sh.amp), sh: sh, V: 0, R: 100, done: false, pal: Math.floor(Math.random() * PALETTES.length), ck: 2 + Math.floor(Math.random() * 3), cph: Math.random() * 6.2832, stride: Math.max(1, Math.floor(target / 7000)), buckets: newBuckets(), list: [], queue: [], qh: 0 };
     galaxies.push(g);
     var s = addNode(text, "seed", null, 0, g);
     seen[text] = 1;
@@ -737,7 +765,7 @@
         var g = galaxies[gi], gr = Math.max(g.R, 100);
         if (g.cx + gr < sL || g.cx - gr > sR || g.cy + gr < sT || g.cy - gr > sB) continue;
         if (gr * view.scale < 70) {               // 遠景：銀河の形を点群（間引き）で描く
-          var sz = 1.8 * inv, PAL = PALS[currentPhase];
+          var sz = 1.8 * inv, PAL = PALS[g.pal][currentPhase];
           ctx.globalAlpha = 0.9;
           for (var ci = 0; ci < PAL_N; ci++) {
             var bk = g.buckets[ci];
@@ -769,7 +797,7 @@
           var node = L[j];
           if (node.x < sL || node.x > sR || node.y < sT || node.y > sB) continue;
           if (node.alpha < 1) { node.alpha = Math.min(1, node.alpha + 0.25); needsRedraw = true; }
-          var color = node.rel === "seed" ? theme.text : PALS[currentPhase][node.ci];
+          var color = node.rel === "seed" ? theme.text : PALS[g.pal][currentPhase][node.ci];
           ctx.globalAlpha = node.alpha;
           if (node.rel === "seed") {
             ctx.font = "bold 20px sans-serif"; ctx.fillStyle = theme.text; ctx.fillText(node.word, node.x, node.y);
@@ -866,7 +894,7 @@
     }
     return JSON.stringify({
       v: 1, elapsed: stats.elapsed, depth: stats.depth,
-      galaxies: galaxies.map(function (g) { return { seed: g.seed, cx: g.cx, cy: g.cy, target: g.target, est: g.est, bound: g.bound, sh: g.sh, h0: g.h0, hs: g.hs, R: g.R, done: g.done, queue: g.queue.slice(g.qh) }; }),
+      galaxies: galaxies.map(function (g) { return { seed: g.seed, cx: g.cx, cy: g.cy, target: g.target, est: g.est, bound: g.bound, sh: g.sh, pal: g.pal, ck: g.ck, cph: g.cph, R: g.R, done: g.done, queue: g.queue.slice(g.qh) }; }),
       nodes: arr
     });
   }
@@ -874,7 +902,7 @@
     var d = JSON.parse(json);
     resetUniverse();
     d.galaxies.forEach(function (gd, i) {
-      galaxies.push({ id: i, seed: gd.seed, cx: gd.cx, cy: gd.cy, target: gd.target, est: gd.est, bound: gd.bound || gd.est * 1.3, sh: gd.sh || DEFAULT_SH, V: 0, h0: gd.h0 !== undefined ? gd.h0 : Math.random() * 360, hs: gd.hs || 300, stride: Math.max(1, Math.floor(gd.target / 7000)), buckets: newBuckets(), R: gd.R, done: gd.done, list: [], queue: gd.queue, qh: 0 });
+      galaxies.push({ id: i, seed: gd.seed, cx: gd.cx, cy: gd.cy, target: gd.target, est: gd.est, bound: gd.bound || gd.est * 1.3, sh: gd.sh || DEFAULT_SH, V: 0, pal: gd.pal !== undefined ? gd.pal : Math.floor(Math.random() * PALETTES.length), ck: gd.ck || 3, cph: gd.cph || 0, stride: Math.max(1, Math.floor(gd.target / 7000)), buckets: newBuckets(), R: gd.R, done: gd.done, list: [], queue: gd.queue, qh: 0 });
     });
     d.nodes.forEach(function (a) {
       var g = galaxies[a[6]], rel = RELS[a[1]], u = a[7] !== undefined ? a[7] : Math.atan2(a[5] - g.cy, a[4] - g.cx), v = a[8] !== undefined ? a[8] : Math.hypot(a[4] - g.cx, a[5] - g.cy), n = makeNode(a[0], rel, a[2], a[3], a[4], a[5], g, u, v);
