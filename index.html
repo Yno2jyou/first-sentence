@@ -323,9 +323,6 @@
     function add(w) { if (w && !set[w]) { set[w] = 1; arr.push(w); } }
     NATURAL_WORDS.forEach(add);
     EXTRA_BANKS.forEach(function (s) { s.split(/\s+/).forEach(add); });
-    for (var i = 0; i < GR_ROOT.length; i++) for (var j = 0; j < GR_SUF.length; j++) {
-      var r = GR_ROOT[i]; add(r + GR_SUF[j]);
-    }
     return arr;
   })();
   function isJp(s) { return /[\u3040-\u30ff\u4e00-\u9fff]/.test(s); }
@@ -398,33 +395,22 @@
 
   var REL_TAG = { "syn": "類義", "hyper": "上位", "hypo": "下位", "assoc": "連想", "deriv": "派生", "seed": "起点" };
 
-  function expandWord(word, n) {
+  // 語彙は意味のある言葉だけ。辞書の関連語を優先し、足りない分は語彙表で意味的に近い（同じ主題に並ぶ）言葉から選ぶ。語の機械的な合成はしない
+  var IDX = {};
+  ALL_WORDS.forEach(function (w, i) { IDX[w] = i; });
+  function strHash(w) { var h = 7; for (var i = 0; i < w.length; i++) h = (Math.imul(h, 31) + w.charCodeAt(i)) | 0; return (h >>> 0); }
+  function expandWord(word, n, sn) {
     var out = [], local = {};
     local[word] = 1;
     function push(w, rel) {
-      if (!w || local[w] || seen[w] || w.length > 26) return false;
+      if (!w || local[w] || sn[w] || w.length > 26) return false;
       local[w] = 1; out.push({ word: w, rel: rel }); return true;
     }
     if (DICT[word]) DICT[word].forEach(function (e) { push(e[0], e[1]); });
-    var relTypes = ["assoc", "hyper", "hypo", "syn", "deriv"];
-    var jc = ["の", "と", "における", "から", "への", "×"], ec = [" of ", " and ", " in ", " from ", " to ", " · "];
-    var guard = 0, jp = isJp(word), latin = /^[A-Za-z]+$/.test(word);
-    while (out.length < n && guard++ < n * 25) {
-      var m = Math.random();
-      if (m < 0.50) {
-        push(pick(ALL_WORDS), pick(relTypes));
-      } else if (m < 0.68) {
-        if (jp && word.length <= 5) push(Math.random() < 0.7 ? word + pick(JP_SUF) : pick(JP_PRE) + word, "deriv");
-        else if (latin) push(Math.random() < 0.5 ? pick(EN_PRE) + word.toLowerCase() : word + pick(EN_SUF), "deriv");
-        else push(pick(GR_ROOT) + pick(GR_SUF), "deriv");
-      } else {
-        var w1 = Math.random() < 0.5 ? word : pick(ALL_WORDS), w2 = pick(ALL_WORDS);
-        if (w1 === w2 || w1.length > 12 || w2.length > 12) continue;
-        var a = isJp(w1), b = isJp(w2);
-        if (a && b) push(w1 + pick(jc) + w2, "assoc");
-        else if (!a && !b) push(w1 + pick(ec) + w2, "assoc");
-        else push(w1 + "・" + w2, "assoc");
-      }
+    var N = ALL_WORDS.length, base = IDX[word] !== undefined ? IDX[word] : strHash(word) % N, guard = 0;
+    while (out.length < n && guard++ < n * 30) {
+      var w = 14 + guard * 2, off = Math.round((Math.random() + Math.random() - 1) * w);
+      push(ALL_WORDS[((base + off) % N + N) % N], "assoc");
     }
     return out;
   }
@@ -530,7 +516,7 @@
   var dpr = window.devicePixelRatio || 1;
 
   var view = { x: 0, y: 0, scale: 0.8 };
-  var dragging = false, lastMouse = { x: 0, y: 0 };
+  var dragging = false, lastMouse = { x: 0, y: 0 }, tap = null;
   var activePointers = {};
   var initialPinchDist = 0;
   var initialScale = 0.8;
@@ -569,6 +555,7 @@
     markDirty();
 
     var ptrs = Object.keys(activePointers);
+    tap = ptrs.length === 1 ? { x: e.clientX, y: e.clientY, t: Date.now() } : null;
     if (ptrs.length === 1) {
       dragging = true;
       canvas.classList.add("dragging");
@@ -586,6 +573,7 @@
     if (!activePointers[e.pointerId]) return;
     activePointers[e.pointerId] = { x: e.clientX, y: e.clientY };
     markDirty();
+    if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 6) tap = null;
 
     var ptrs = Object.keys(activePointers);
     if (ptrs.length === 1 && dragging) {
@@ -613,7 +601,20 @@
     }
   });
 
+  function handleTap(x, y) {   // ズームアウト時：銀河をタップするとその中心の一行を表示
+    var wx = (x - view.x) / view.scale, wy = (y - view.y) / view.scale, best = null, bd = 1e18;
+    galaxies.forEach(function (g) {
+      var gr = Math.max(g.R, 100);
+      if (gr * view.scale >= 70) return;
+      var d = Math.hypot(wx - g.cx, wy - g.cy);
+      if (d * view.scale < gr * view.scale + 24 && d < bd) { bd = d; best = g; }
+    });
+    galaxies.forEach(function (g) { g.show = (g === best) ? !g.show : false; });
+    needsRedraw = true;
+  }
   function handlePointerEnd(e) {
+    if (e.type === "pointerup" && tap && Date.now() - tap.t < 600 && Object.keys(activePointers).length === 1 && e.target === canvas) handleTap(e.clientX, e.clientY);
+    tap = null;
     delete activePointers[e.pointerId];
     var ptrs = Object.keys(activePointers);
     if (ptrs.length < 2) { initialPinchDist = 0; }
@@ -724,8 +725,9 @@
     return { s: Math.floor(R() * 1e9), coreH: 18 + R() * 42, coreS: 0.5 + R() * 0.5, coreL: 0.7 + R() * 0.22,
       outH: 188 + R() * 55, outS: 0.5 + R() * 0.5, outL: 0.5 + R() * 0.22,
       y: Math.pow(R(), 0.7), hii: R() * 0.55, hiiH: 305 + R() * 60, dust: R() * 0.6,
-      f1: 0.8 + R() * 2.4, f2: 4 + R() * 9, tw: (R() - 0.5) * 6, ox: R() * 100, oy: R() * 100 };
+      la: R() * 6.2832, lit: 0.6 + R() * 0.7, f1: 0.8 + R() * 2.4, f2: 4 + R() * 9, tw: (R() - 0.5) * 6, ox: R() * 100, oy: R() * 100 };
   }
+  var _dp = 1;
   function colorFor(g, u, v, id) {
     var c = g.cm, t = Math.min(1.05, v / (g.est * 1.1)), x = Math.cos(u) * t, y = Math.sin(u) * t, sd = c.s;
     var r1 = hash(id * 7919 + sd), r2 = hash(id * 104729 + sd + 1), r3 = hash(id * 1299709 + sd + 2), r4 = hash(id * 15485863 + sd + 3);
@@ -738,14 +740,42 @@
     if (n2 > 1 - c.hii * 0.7 && t > 0.2 && r4 > 0.35) { h = c.hiiH + (r3 - 0.5) * 30; s = 0.75 + r2 * 0.25; l = 0.55 + r1 * 0.15; }   // HII領域
     if (vnoise(x * c.f1 * 5 + c.oy, y * c.f1 * 5 + c.ox, sd + 13) < c.dust * 0.4 && t > 0.1) { l *= 0.5 + r3 * 0.2; s *= 0.6; h = 15 + r2 * 20; }   // 塵の筋
     if (r4 > 0.985) { l = 0.9 + r1 * 0.08; s = 0.3 + r2 * 0.5; }   // きらめく明るい星
+    var dome = Math.sqrt(Math.max(0, 1 - t * t)), lit = x * Math.cos(c.la) + y * Math.sin(c.la);   // 光源に向いた側が明るい球状の膨らみ（立体感）
+    l += c.lit * (lit * 0.22 + dome * 0.16) - 0.1 * t * t;
     l += (r3 - 0.5) * 0.14; s += (r1 - 0.5) * 0.22; h += (r4 - 0.5) * 10;
+    _dp = 0.3 + 0.7 * hash(id * 3571 + sd + 5) * (1 - 0.3 * t);   // 奥行き：手前の星ほど濃く大きく、奥の星は淡く小さく
+    var al = (0.55 + 0.45 * _dp).toFixed(2);
     s = Math.max(0.15, Math.min(1, s)); l = Math.max(0.16, Math.min(0.95, l)); h = ((h % 360) + 360) % 360;
-    return currentPhase === "day" ? "hsl(" + Math.round(h) + "," + Math.round(Math.min(1, s * 0.9 + 0.1) * 100) + "%," + Math.round((0.3 + 0.3 * l) * 100) + "%)"
-      : "hsl(" + Math.round(h) + "," + Math.round(s * 100) + "%," + Math.round(l * 100) + "%)";
+    return currentPhase === "day" ? "hsla(" + Math.round(h) + "," + Math.round(Math.min(1, s * 0.9 + 0.1) * 100) + "%," + Math.round((0.3 + 0.3 * l) * 100) + "%," + al + ")"
+      : "hsla(" + Math.round(h) + "," + Math.round(s * 100) + "%," + Math.round(l * 100) + "%," + al + ")";
   }
   function colorIdx(g, u, v, id) {
     var tt = Math.pow(Math.min(1, v / (g.est * 1.1)), 0.85);
     return Math.max(0, Math.min(PAL_N - 1, Math.floor(tt * (PAL_N - 1))));
+  }
+  // 星雲のようなグロー：実際の言葉の分布に沿って淡い光を重ね、中心には球状の核を描く（奥行きと立体感）
+  function drawGlow(g, rad, alpha, sL, sR, sT, sB) {
+    var night = currentPhase === "night", c = g.cm;
+    ctx.save();
+    ctx.globalCompositeOperation = night ? "lighter" : "source-over";
+    ctx.globalAlpha = alpha;
+    for (var ci = 0; ci < PAL_N; ci++) {
+      var bk = g.buckets[ci];
+      for (var q = 0; q < bk.length; q += 2) {
+        var n = bk[q];
+        if (n.x < sL || n.x > sR || n.y < sT || n.y > sB) continue;
+        ctx.fillStyle = n.col; ctx.beginPath(); ctx.arc(n.x, n.y, rad * (0.7 + 0.8 * n.dp), 0, 6.2832); ctx.fill();
+      }
+    }
+    var sh = g.sh, rot = Math.atan2(sh.sr, sh.cr), Rb = g.est * 0.32;
+    ctx.translate(g.cx, g.cy); ctx.rotate(rot); ctx.scale(sh.sx, sh.sy);
+    var gr = ctx.createRadialGradient(-Rb * 0.12 * Math.cos(c.la), -Rb * 0.12 * Math.sin(c.la), 0, 0, 0, Rb);
+    var L = night ? c.coreL : 0.35;
+    gr.addColorStop(0, "hsla(" + Math.round(c.coreH) + "," + Math.round(c.coreS * 100) + "%," + Math.round(Math.min(0.97, L + 0.12) * 100) + "%,0.85)");
+    gr.addColorStop(0.35, "hsla(" + Math.round(c.coreH) + "," + Math.round(c.coreS * 100) + "%," + Math.round(L * 100) + "%,0.35)");
+    gr.addColorStop(1, "hsla(" + Math.round(c.coreH) + "," + Math.round(c.coreS * 100) + "%," + Math.round(L * 100) + "%,0)");
+    ctx.globalAlpha = night ? 0.8 : 0.5; ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(0, 0, Rb, 0, 6.2832); ctx.fill();
+    ctx.restore();
   }
   function newBuckets() { var b = []; for (var i = 0; i < PAL_N; i++) b.push([]); return b; }
   function makeNode(word, rel, parentId, depth, x, y, g, u, v) {
@@ -757,7 +787,7 @@
     if (d > g.R) g.R = d;
     if (v > g.V) g.V = v;
     node.ci = rel === "seed" ? 0 : colorIdx(g, u, v, node.id);
-    node.col = rel === "seed" ? null : colorFor(g, u, v, node.id);
+    node.col = rel === "seed" ? null : colorFor(g, u, v, node.id); node.dp = _dp;
     if (rel !== "seed" && g.list.length % g.stride === 0) g.buckets[node.ci].push(node);   // 遠景用の間引き点群
     nodes.push(node); g.list.push(node);
     return node;
@@ -779,15 +809,15 @@
     }
   }
   function newGalaxy(text) {
-    var target = MIN_NODES + Math.floor(Math.random() * (MAX_NODES - MIN_NODES + 1));
+    var target = Math.floor(ALL_WORDS.length * (0.35 + Math.random() * 0.6));   // 意味のある語彙の範囲内で銀河の大きさを決める
     var sh = makeShape(), est = 55 * Math.sqrt(target) * Math.max(sh.sx, sh.sy) * (1 + sh.amp + (sh.a2 || 0)) * 1.15, c = placeCenter(est);
-    var g = { id: galaxies.length, seed: text, cx: c.x, cy: c.y, bound: est, target: target, est: est / 1.15 / Math.max(sh.sx, sh.sy) / (1 + sh.amp + (sh.a2 || 0)), sh: sh, V: 0, R: 100, done: false, stops: makeStops(), cm: makeColorModel(), pals: null, ck: 2 + Math.floor(Math.random() * 3), cph: Math.random() * 6.2832, stride: Math.max(1, Math.floor(target / 7000)), buckets: newBuckets(), list: [], queue: [], qh: 0 };
+    var g = { id: galaxies.length, seed: text, cx: c.x, cy: c.y, bound: est, target: target, est: est / 1.15 / Math.max(sh.sx, sh.sy) / (1 + sh.amp + (sh.a2 || 0)), sh: sh, V: 0, R: 100, done: false, seen: {}, stops: makeStops(), cm: makeColorModel(), pals: null, ck: 2 + Math.floor(Math.random() * 3), cph: Math.random() * 6.2832, stride: Math.max(1, Math.floor(target / 7000)), buckets: newBuckets(), list: [], queue: [], qh: 0 };
     g.pals = buildPal(g.stops);
     galaxies.push(g);
     var s = addNode(text, "seed", null, 0, g);
-    seen[text] = 1;
+    g.seen[text] = 1;
     extractWords(text).forEach(function (w) {
-      if (!seen[w]) { seen[w] = 1; g.queue.push(addNode(w, "assoc", s.id, 1, g).id); }
+      if (!g.seen[w]) { g.seen[w] = 1; g.queue.push(addNode(w, "assoc", s.id, 1, g).id); }
     });
     userInteracted = false;
     needsRedraw = true;
@@ -827,19 +857,23 @@
         var g = galaxies[gi], gr = Math.max(g.R, 100);
         if (g.cx + gr < sL || g.cx - gr > sR || g.cy + gr < sT || g.cy - gr > sB) continue;
         if (gr * view.scale < 70) {               // 遠景：銀河の形を点群（間引き）で描く
-          var sz = 1.8 * inv, PAL = g.pals[currentPhase];
-          ctx.globalAlpha = 0.9;
+          var sz = 1.8 * inv;
+          drawGlow(g, 7 * inv, 0.07, sL, sR, sT, sB);
+          ctx.globalAlpha = 0.95;
           for (var ci = 0; ci < PAL_N; ci++) {
             var bk = g.buckets[ci];
             if (!bk.length) continue;
-                        for (var q = 0; q < bk.length; q++) { ctx.fillStyle = bk[q].col; ctx.fillRect(bk[q].x - sz / 2, bk[q].y - sz / 2, sz, sz); }
+                        for (var q = 0; q < bk.length; q++) { var bn = bk[q], z = sz * (0.6 + 0.9 * bn.dp); ctx.fillStyle = bn.col; ctx.fillRect(bn.x - z / 2, bn.y - z / 2, z, z); }
           }
-          ctx.globalAlpha = 1; ctx.fillStyle = theme.text;
-          ctx.font = "bold " + (12 * inv) + "px sans-serif";
-          ctx.fillText(g.seed, g.cx, g.cy);
+          ctx.globalAlpha = 1;
+          if (g.show) {   // タップした銀河だけ、中心の一行を表示
+            ctx.fillStyle = theme.text; ctx.font = "bold " + (14 * inv) + "px sans-serif";
+            ctx.fillText(g.seed, g.cx, g.cy);
+          }
           continue;
         }
         var L = g.list;
+        drawGlow(g, Math.max(80, 7 * inv), 0.05, sL, sR, sT, sB);
         if (view.scale > 0.03 && lineBudget > 0) {
           ctx.lineWidth = Math.max(0.4, 0.7 * inv); ctx.strokeStyle = theme.line; ctx.globalAlpha = 0.55;
           ctx.beginPath();
@@ -903,14 +937,16 @@
         var id = g.queue[qi]; g.queue[qi] = g.queue[g.qh]; g.qh++;
         if (g.qh > 60000) { g.queue = g.queue.slice(g.qh); g.qh = 0; }
         var node = nodes[id - 1];
-        var rel = expandWord(node.word, BRANCH_MIN + Math.floor(Math.random() * BRANCH_VAR));
+        var rel = expandWord(node.word, BRANCH_MIN + Math.floor(Math.random() * BRANCH_VAR), g.seen), before = g.list.length;
         for (var i = 0; i < rel.length; i++) {
           var it = rel[i];
-          if (seen[it.word] || g.list.length >= g.target) continue;
-          seen[it.word] = 1;
+          if (g.seen[it.word] || g.list.length >= g.target) continue;
+          g.seen[it.word] = 1;
           g.queue.push(addNode(it.word, it.rel, node.id, node.depth + 1, g).id);
           if (node.depth + 1 > stats.depth) stats.depth = node.depth + 1;
         }
+        g.stall = g.list.length === before ? (g.stall || 0) + 1 : 0;
+        if (g.stall > 400) { g.done = true; act = act.filter(function (x) { return x !== g; }); break; }
       }
     }
     stats.nodes = nodes.length;
@@ -963,11 +999,11 @@
     var d = JSON.parse(json);
     resetUniverse();
     d.galaxies.forEach(function (gd, i) {
-      galaxies.push({ id: i, seed: gd.seed, cx: gd.cx, cy: gd.cy, target: gd.target, est: gd.est, bound: gd.bound || gd.est * 1.3, sh: gd.sh || DEFAULT_SH, V: 0, stops: gd.stops || makeStops(), cm: gd.cm || makeColorModel(), pals: null, ck: gd.ck || 3, cph: gd.cph || 0, stride: Math.max(1, Math.floor(gd.target / 7000)), buckets: newBuckets(), R: gd.R, done: gd.done, list: [], queue: gd.queue, qh: 0 });
+      galaxies.push({ id: i, seed: gd.seed, cx: gd.cx, cy: gd.cy, target: gd.target, est: gd.est, bound: gd.bound || gd.est * 1.3, sh: gd.sh || DEFAULT_SH, V: 0, seen: {}, stops: gd.stops || makeStops(), cm: gd.cm || makeColorModel(), pals: null, ck: gd.ck || 3, cph: gd.cph || 0, stride: Math.max(1, Math.floor(gd.target / 7000)), buckets: newBuckets(), R: gd.R, done: gd.done, list: [], queue: gd.queue, qh: 0 });
     });
     d.nodes.forEach(function (a) {
       var g = galaxies[a[6]], rel = RELS[a[1]], u = a[7] !== undefined ? a[7] : Math.atan2(a[5] - g.cy, a[4] - g.cx), v = a[8] !== undefined ? a[8] : Math.hypot(a[4] - g.cx, a[5] - g.cy), n = makeNode(a[0], rel, a[2], a[3], a[4], a[5], g, u, v);
-      n.alpha = 1; seen[a[0]] = 1;
+      n.alpha = 1; g.seen[a[0]] = 1;
     });
     galaxies.forEach(function (g, i) { g.R = d.galaxies[i].R; g.pals = buildPal(g.stops); });
     stats.elapsed = d.elapsed || 0; stats.depth = d.depth || 0; userInteracted = false;
