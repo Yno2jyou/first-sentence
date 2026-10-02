@@ -720,10 +720,19 @@
       for (var gi = 0; gi < galaxies.length; gi++) {
         var g = galaxies[gi], gr = Math.max(g.R, 100);
         if (g.cx + gr < sL || g.cx - gr > sR || g.cy + gr < sT || g.cy - gr > sB) continue;
-        if (gr * view.scale < 70) {               // 遠景：銀河全体を円盤＋名前で表現
-          ctx.globalAlpha = 0.16; ctx.fillStyle = theme.text;
-          ctx.beginPath(); ctx.arc(g.cx, g.cy, gr, 0, 6.2832); ctx.fill();
-          ctx.globalAlpha = 1; ctx.font = "bold " + (12 * inv) + "px sans-serif";
+        if (gr * view.scale < 70) {               // 遠景：銀河の形を点群（間引き）で描く
+          var LL = g.list, step = Math.max(1, Math.floor(LL.length / 7000)), sz = 1.7 * inv;
+          var rels = ["syn", "hyper", "hypo", "assoc", "deriv"];
+          ctx.globalAlpha = 0.85;
+          for (var ri = 0; ri < rels.length; ri++) {
+            ctx.fillStyle = theme[rels[ri]];
+            for (var q = 0; q < LL.length; q += step) {
+              var pn = LL[q];
+              if (pn.rel === rels[ri]) ctx.fillRect(pn.x - sz / 2, pn.y - sz / 2, sz, sz);
+            }
+          }
+          ctx.globalAlpha = 1; ctx.fillStyle = theme.text;
+          ctx.font = "bold " + (12 * inv) + "px sans-serif";
           ctx.fillText(g.seed, g.cx, g.cy);
           continue;
         }
