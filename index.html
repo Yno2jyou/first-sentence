@@ -122,53 +122,297 @@
   var root = document.getElementById("root");
   root.className = currentPhase;
 
-  // 大広域・多言語・自然単語データベース
+  // ========== 爆発的に拡大した語彙データベース ==========
+  // 日本語（自然・宇宙・物質・精神・概念・科学・哲学・日常） + 英語・ラテン・ギリシャ語 + 生成用接辞
   var NATURAL_WORDS = [
-    // 自然・宇宙・物質
-    "雨", "水", "空", "海", "風", "光", "雲", "星", "月", "太陽", "銀河", "深海", "地平", "真空", "新緑",
-    "結晶", "樹木", "原野", "孤島", "流星", "地殻", "大気", "オーロラ", "極光", "脈動", "暗黒物質", "星雲",
-    // 精神・概念・言葉
-    "記憶", "未来", "過去", "情熱", "静寂", "思考", "対話", "哲学", "言葉", "音楽", "色彩", "建築",
-    "時間", "空間", "存在", "生命", "意識", "希望", "調和", "真理", "世界", "波動", "共鳴", "物語",
-    "幻想", "現実", "観測", "粒子", "万物", "感情", "精神", "知恵", "創世", "呼吸", "輪郭", "余白", "残響",
-    // 科学・数理・文明
-    "幾何学", "定理", "極限", "次元", "構造", "秩序", "混沌", "電磁波", "熱力学", "エントロピー", "位相",
-    "記号", "概念", "文脈", "起源", "終義", "螺旋", "影", "鏡像", "微光", "軌道", "果実", "熱量",
-    // 多言語・国際単語 (Multilingual Concepts)
-    "Cosmos", "Aether", "Genesis", "Nexus", "Chaos", "Horizon", "Echo", "Spectrum", "Paradox", "Lumina",
-    "Nova", "Aura", "Veritas", "Symphony", "Astral", "Prism", "Chronos", "Logos", "Entropy", "Starlight",
-    "Aeterna", "Vortex", "Sola", "Luna", "Aethel", "Ignis", "Aqua", "Ventus", "Terra", "Zephyr"
+    // 自然・宇宙・物質・気象
+    "雨","水","空","海","風","光","雲","星","月","太陽","銀河","深海","地平","真空","新緑",
+    "結晶","樹木","原野","孤島","流星","地殻","大気","オーロラ","極光","脈動","暗黒物質","星雲",
+    "自然","天地","万物","森羅万象","陰陽","星辰","山河","植物","松","苔","木","花","草","葉",
+    "枝","根","種","川","湖","池","滝","波","氷河","氷山","島","山","丘","谷","岩","砂漠",
+    "草原","火山","空気","火","土","砂","崖","洞窟","平野","高原","海岸","渚","港","森","林",
+    "苔むす","木漏れ日","翠","碧","蒼","白銀","黄金","朱","藍","霞","霧","靄","霜","露","雪",
+    "雷","稲妻","虹","朝焼け","夕焼け","黄昏","夜明け","正午","真夜中","季節","春","夏","秋","冬",
+    "桜","紅葉","新芽","落葉","種子","果実","花粉","菌","胞子","光合成","生態系","循環","進化",
+    "潮","汐","渦","泡","雫","雫","氷","炎","灰","煙","塵","砂丘","湿地","沼","渓流","瀑布",
+    "峰","嶺","麓","峠","洞","礁","岬","半島","大陸","海洋","成層圏","電離層","磁場","重力場",
+    "彗星","小惑星","惑星","衛星","恒星","超新星","ブラックホール","中性子星","パルサー","クエーサー",
+    "分子雲","星間物質","ダークマター","ダークエネルギー","宇宙背景放射","インフレーション","特異点",
+
+    // 精神・概念・言葉・感情・哲学
+    "記憶","未来","過去","情熱","静寂","思考","対話","哲学","言葉","音楽","色彩","建築",
+    "時間","空間","存在","生命","意識","希望","調和","真理","世界","波動","共鳴","物語",
+    "幻想","現実","観測","粒子","感情","精神","知恵","創世","呼吸","輪郭","余白","残響",
+    "心","魂","愛","憎しみ","喜び","悲しみ","怒り","恐れ","勇気","自由","正義","平和","幸福",
+    "絶望","信頼","誠実","慈悲","知識","美","醜","善","悪","欲望","苦痛","快楽",
+    "孤独","連帯","友情","忠誠","プライド","謙遜","好奇心","創造","破壊","誕生","死","再生",
+    "夢","幻","覚醒","瞑想","悟り","無","有","無限","有限","永遠","瞬間","運命","偶然",
+    "必然","因果","縁","輪廻","解脱","涅槃","道","禅","侘","寂","幽玄","物の哀れ","いき","粋",
+    "無常","空観","中道","慈悲","智慧","慈悲心","菩提","煩悩","執着","放下","無心","正念",
+    "自己","他者","主体","客体","現象","本質","実体","仮象","イデア","形相","質料","可能態","現実態",
+    "理性","感性","意志","情念","徳","善性","悪徳","幸福論","快楽主義","禁欲","ストア","エピクロス",
+    "存在論","認識論","倫理学","美学","論理学","形而上学","弁証法","現象学","実存","構造主義",
+
+    // 科学・数理・文明・構造・技術
+    "幾何学","定理","極限","次元","構造","秩序","混沌","電磁波","熱力学","エントロピー","位相",
+    "記号","概念","文脈","起源","終義","螺旋","影","鏡像","微光","軌道","熱量",
+    "量子","相対性","重力","質量","エネルギー","光速","ブラックホール","特異点","ビッグバン",
+    "原子","分子","電子","陽子","中性子","素粒子","弦理論","多元宇宙","シミュレーション",
+    "アルゴリズム","情報","複雑系","創発","自己組織化","フラクタル","カオス",
+    "ネットワーク","ノード","エッジ","トポロジー","グラフ","行列","ベクトル","テンソル",
+    "微分","積分","無限小","無限大","連続","離散","対称性","群","環","体","圏","関手",
+    "方程式","関数","変数","定数","演算","証明","公理","仮説","実験","観測","測定","誤差",
+    "確率","統計","分布","平均","分散","相関","因果","モデル","シミュレーション","最適化",
+    "人工知能","機械学習","ニューラルネットワーク","深層学習","データ","ビッグデータ","クラウド",
+    "プロトコル","インターフェース","アーキテクチャ","モジュール","抽象化","カプセル化","継承",
+
+    // 日常・人間・社会・行為・芸術
+    "人間","社会","家族","共同体","個人","集団","文化","伝統","革新","習慣","儀式","祭り",
+    "声","沈黙","会話","詩","小説","絵画","彫刻","舞踏","演劇","都市","橋","家","窓","扉","壁",
+    "屋根","庭","公園","広場","市場","仕事","遊び","休息","睡眠","食事","旅","冒険","帰還",
+    "別れ","再会","約束","裏切り","失望","成功","失敗","挑戦","忍耐","努力","才能","運","集中","散漫",
+    "手","目","耳","口","足","身体","皮膚","骨","血","呼吸器","循環器","神経","脳","心臓",
+    "感情表現","表情","仕草","習慣","ルーティン","儀式","祝祭","哀悼","祝い","贈り物","交換",
+    "権力","権威","支配","服従","抵抗","革命","改革","制度","法律","規範","道徳","倫理","正義",
+    "経済","貨幣","交換","価値","労働","資本","市場","需給","成長","衰退","危機","回復",
+
+    // 多言語・国際概念語 (Latin / Greek / English / others) — 重複除去済み
+    "Cosmos","Aether","Genesis","Nexus","Chaos","Horizon","Echo","Spectrum","Paradox","Lumina",
+    "Nova","Aura","Veritas","Symphony","Astral","Prism","Chronos","Logos","Entropy","Starlight",
+    "Aeterna","Vortex","Sola","Luna","Aethel","Ignis","Aqua","Ventus","Terra","Zephyr",
+    "Anima","Spiritus","Mens","Ratio","Intellectus","Voluntas","Affectus","Passio","Virtus",
+    "Pulchritudo","Bonitas","Libertas","Justitia","Pax","Amor","Odio","Timor",
+    "Spes","Fides","Caritas","Sapientia","Scientia","Ars","Techne","Physis","Nomos",
+    "Kosmos","Pathos","Ethos","Mythos","Eidos","Hyle","Pneuma","Psyche","Nous",
+    "Aletheia","Doxa","Episteme","Sophia","Phronesis","Arete","Eudaimonia","Ataraxia",
+    "Kairos","Aion","Apeiron","Arche","Telos","Energeia","Dynamis","Entelecheia",
+    "Quantum","Relativity","Singularity","Event","Wave","Particle","Field","Force",
+    "Information","Complexity","Emergence","Fractal","Network","Topology","Symmetry",
+    "Infinity","Void","Plenum","Monad","Dyad","Triad","Quaternity","Quintessence","Element",
+    "Being","Becoming","Essence","Existence","Nothingness","Absolute","Relative","Universal",
+    "Particular","Form","Matter","Cause","Effect","Necessity","Contingency","Freedom",
+    "Will","Reason","Intuition","Perception","Imagination","Memory","Attention","Consciousness",
+    // 追加の自然語彙（日本語中心・意味のあるもののみ）
+    "静寂の海","光の粒","時間の流れ","空間のゆらぎ","意識の層","記憶の残像","言葉の力","思考の軌跡",
+    "感情の波","精神の核","生命の鼓動","存在の根拠","真理の光","調和の調べ","希望の灯","絶望の闇",
+    "自由の翼","正義の秤","平和の鳩","愛の絆","知恵の泉","創造の火","破壊の風","再生の芽",
+    "宇宙の息吹","銀河の螺旋","星の瞬き","月の影","太陽の熱","雲の流れ","雨の音","風の声",
+    "海の深み","山の静けさ","森のささやき","花の香り","葉のざわめき","根の広がり","種の眠り",
+    "量子の揺らぎ","相対性の枠","重力の引力","エントロピーの増大","情報の海","複雑系の秩序",
+    "フラクタルの形","ネットワークの結節","トポロジーの穴","対称性の美","無限の広がり","有限の境界",
+    "禅の無心","道の歩み","縁の結び","因果の鎖","輪廻の環","悟りの光","無常の教え","空の境地",
+    "イデアの影","形相の実現","質料の可能性","理性の光","感性の彩り","意志の力","徳の実践",
+    "現象の現れ","本質の探求","実存の問い","構造の分析","弁証法の動き","形而上学の問い",
+    "呼吸のリズム","輪郭の曖昧さ","余白の豊かさ","残響の余韻","共鳴の響き","波動の伝播",
+    "観測の行為","粒子の軌跡","場の広がり","力の作用","エネルギーの変換","質量の重み",
+    "光速の限界","特異点の近傍","ビッグバンの痕跡","多元宇宙の可能性","弦の振動","膜の世界",
+    "アルゴリズムの手順","データの海","モデルの近似","最適化の道","創発の不思議","自己組織化の妙",
+    "人間の尊厳","社会の絆","文化の継承","伝統の重み","革新の息吹","習慣の力","儀式の意味",
+    "声の響き","沈黙の深さ","会話の機微","詩の調べ","小説の世界","絵画の色面","音楽の調べ",
+    "建築の空間","都市の脈動","旅の道行き","冒険の心","帰還の安堵","別れの痛み","再会の喜び",
+    "約束の重み","信頼の基盤","誠実の姿勢","慈悲の心","好奇心の翼","忍耐の力","努力の積み重ね",
+    "才能の輝き","運の巡り","集中の極み","散漫の危うさ","成功の喜び","失敗の教訓","挑戦の勇気",
+    "孤独の深さ","連帯の温かさ","友情の絆","忠誠の心","プライドの高さ","謙遜の美徳",
+    "夢の世界","幻の姿","覚醒の瞬間","瞑想の静けさ","悟りの境地","無の広がり","有の充実",
+    "永遠の相","瞬間の輝き","運命の糸","偶然の出会い","必然の道筋","因果の法則",
+    "Lumen","Umbra","Flux","Nexus","Aura","Echo","Prism","Vortex","Horizon","Spectrum",
+    "Chronos","Kairos","Logos","Pathos","Ethos","Mythos","Psyche","Nous","Sophia","Arete",
+    "Aletheia","Episteme","Physis","Nomos","Kosmos","Aion","Apeiron","Arche","Telos","Energeia",
+    // さらに多言語・概念語を網羅的に追加
+    "Silence","Stillness","Resonance","Harmony","Discord","Balance","Tension","Release",
+    "Origin","Destination","Journey","Return","Departure","Arrival","Threshold","Passage",
+    "Lightness","Heaviness","Clarity","Obscurity","Transparency","Opacity","Depth","Surface",
+    "Interior","Exterior","Center","Periphery","Core","Shell","Kernel","Envelope",
+    "Birth","Growth","Decay","Renewal","Cycle","Spiral","Wave","Pulse",
+    "Thought","Feeling","Sensation","Perception","Cognition","Reflection","Contemplation","Insight",
+    "Wisdom","Folly","Knowledge","Ignorance","Understanding","Misunderstanding","Truth","Illusion",
+    "Reality","Dream","Awakening","Sleep","Vigilance","Attention","Distraction","Focus",
+    "Love","Hatred","Compassion","Indifference","Empathy","Apathy","Sympathy","Antipathy",
+    "Courage","Fear","Hope","Despair","Joy","Sorrow","Anger","Calm",
+    "Freedom","Bondage","Liberty","Constraint","Autonomy","Dependence","Independence","Interdependence",
+    "Justice","Injustice","Equity","Inequality","Fairness","Bias","Impartiality","Prejudice",
+    "Peace","Conflict","War","Truce","Harmony","Discord","Unity","Division",
+    "Beauty","Ugliness","Grace","Awkwardness","Elegance","Coarseness","Refinement","Crude",
+    "Order","Chaos","Structure","Formlessness","Pattern","Randomness","System","Anarchy",
+    "Time","Eternity","Moment","Duration","Instant","Epoch","Era","Age",
+    "Space","Place","Location","Position","Distance","Proximity","Extent","Bound",
+    "Being","Nonbeing","Presence","Absence","Existence","Nonexistence","Manifestation","Concealment",
+    "Mind","Body","Spirit","Soul","Flesh","Psyche","Soma","Anima",
+    "Word","Silence","Speech","Mute","Language","Gesture","Sign","Symbol",
+    "Meaning","Nonsense","Sense","Absurdity","Significance","Insignificance","Import","Triviality",
+    "Cause","Effect","Reason","Consequence","Antecedent","Result","Origin","Outcome",
+    "Necessity","Contingency","Possibility","Impossibility","Probability","Certainty","Doubt","Belief",
+    "Form","Matter","Substance","Accident","Essence","Appearance","Reality","Phenomenon",
+    "Potential","Actual","Virtual","Real","Latent","Manifest","Implicit","Explicit",
+    "One","Many","Unity","Multiplicity","Singularity","Plurality","Identity","Difference",
+    "Same","Other","Self","Alien","Familiar","Strange","Known","Unknown",
+    "Whole","Part","Totality","Fragment","Complete","Incomplete","Entire","Partial",
+    "Infinite","Finite","Boundless","Limited","Endless","Terminable","Eternal","Temporal",
+    "Absolute","Relative","Unconditional","Conditional","Necessary","Contingent","Universal","Particular",
+    "Subject","Object","Agent","Patient","Actor","Receiver","Doer","Sufferer",
+    "Active","Passive","Dynamic","Static","Moving","Still","Changing","Constant",
+    "Internal","External","Intrinsic","Extrinsic","Inherent","Acquired","Innate","Learned",
+    "Primary","Secondary","Fundamental","Derivative","Basic","Complex","Simple","Compound",
+    "Abstract","Concrete","General","Specific","Universal","Individual","Common","Unique",
+    "Theoretical","Practical","Speculative","Empirical","Ideal","Real","Imaginary","Actual",
+    "Logical","Illogical","Rational","Irrational","Reasonable","Unreasonable","Coherent","Incoherent",
+    "Moral","Immoral","Ethical","Unethical","Virtuous","Vicious","Good","Evil",
+    "Aesthetic","Unaesthetic","Beautiful","Ugly","Sublime","Ridiculous","Graceful","Clumsy",
+    "Sacred","Profane","Holy","Secular","Divine","Human","Transcendent","Immanent",
+    "Myth","History","Legend","Fact","Story","Account","Narrative","Chronicle",
+    "Poetry","Prose","Verse","Text","Song","Speech","Discourse","Dialogue",
+    "Art","Craft","Technique","Skill","Creation","Production","Invention","Discovery",
+    "Science","Philosophy","Religion","Theology","Metaphysics","Physics","Mathematics","Logic",
+    "Nature","Culture","Civilization","Barbarism","Wilderness","City","Garden","Desert",
+    "Element","Compound","Mixture","Solution","Atom","Molecule","Particle","Wave",
+    "Force","Energy","Power","Strength","Weakness","Capacity","Potential","Kinetic",
+    "Motion","Rest","Velocity","Acceleration","Inertia","Momentum","Impulse","Impact",
+    "Heat","Cold","Temperature","Pressure","Density","Volume","Mass","Weight",
+    "Light","Dark","Color","Shade","Hue","Tone","Brightness","Dimness",
+    "Sound","Silence","Noise","Harmony","Melody","Rhythm","Tone","Pitch",
+    "Taste","Smell","Touch","Sight","Hearing","Sense","Sensation","Perception",
+    "Memory","Forgetfulness","Recollection","Remembrance","Oblivion","Retention","Recall","Amnesia",
+    "Imagination","Fantasy","Reality","Illusion","Vision","Dream","Daydream","Nightmare",
+    "Emotion","Feeling","Passion","Affection","Sentiment","Mood","Temper","Disposition",
+    "Will","Desire","Wish","Intention","Purpose","Goal","Aim","Objective",
+    "Action","Inaction","Deed","Act","Behavior","Conduct","Practice","Habit",
+    "Thought","Idea","Concept","Notion","Opinion","Judgment","Belief","Conviction",
+    "Knowledge","Understanding","Comprehension","Insight","Awareness","Consciousness","Unconsciousness","Subconscious",
+    "Wisdom","Intelligence","Reason","Intellect","Mind","Brain","Spirit","Soul"
   ];
 
+
+  // ========== 拡張語彙（多言語） ==========
+  var EXTRA_BANKS = [
+    // 日本語：自然・物質・時空
+    "朧月 月光 夜想 星屑 天の川 銀漢 宙 虚空 蒼穹 天球 天体 暁 黎明 薄明 宵 夜半 刹那 久遠 劫 那由他 阿僧祇 無量 恒河沙 星霜 歳月 光陰 時雨 五月雨 春雷 薫風 木枯らし 疾風 凪 嵐 竜巻 陽炎 蜃気楼 氷柱 霰 雹 吹雪 雪崩 地震 津波 潮流 暖流 寒流 海溝 海嶺 珊瑚 干潟 入江 瀬 淵 源流 伏流 鍾乳洞 溶岩 噴火 間欠泉 温泉 岩盤 断層 褶曲 堆積 侵食 風化 鉱物 水晶 琥珀 翡翠 瑪瑙 黒曜石 隕石 金属 鉄 銅 銀 金 錫 硫黄 炭素 水素 酸素 窒素 珪素 元素 周期 結合 反応 触媒 酸 塩基 溶媒 結晶格子",
+    // 生物・植物
+    "苔庭 竹 梅 菖蒲 蓮 睡蓮 菊 藤 椿 欅 杉 檜 銀杏 楓 柳 蔦 蕨 羊歯 茸 地衣 藻 珪藻 微生物 細胞 遺伝子 染色体 蛋白質 酵素 進化論 適応 共生 捕食 擬態 渡り 冬眠 蝶 蜻蛉 蛍 蜂 蟻 蜘蛛 鯨 海豚 鮫 鷹 鶴 鷺 梟 狼 狐 鹿 熊 亀 龍 鳳凰 麒麟 獅子 虎 蛇 鯉 蛸 海月 珊瑚礁",
+    // 精神・哲学・宗教・芸術
+    "刹那滅 色即是空 空即是色 諸行無常 諸法無我 縁起 因縁 業 般若 菩薩 如来 曼荼羅 真言 念仏 座禅 公案 只管打坐 風流 数寄 わび さび 間 余情 幽寂 無為自然 老荘 荘子 老子 論語 孔子 易経 五行 八卦 陰陽道 神道 八百万 言霊 祝詞 神話 伝承 民話 昔話 童話 寓話 叙事詩 和歌 俳句 短歌 連歌 能 狂言 歌舞伎 浮世絵 水墨画 書道 茶道 華道 香道 弓道 剣道 武士道 禅問答 弁証 懐疑 虚無 超越 内在 止揚 弁別 範疇 命題 前提 帰納 演繹 類推 暗黙知 身体知 意味論 記号論 解釈学 修辞 隠喩 換喩 象徴 寓意 物語論 時間論 空間論 生成 消滅 変容 転生 越境 融合 分岐 収束 発散 振動 共振 干渉 回折 屈折 反射 散乱 吸収 放射",
+    // 社会・日常・技術
+    "朝 昼 夕 夜 台所 食卓 湯気 珈琲 緑茶 米 味噌 醤油 出汁 旬 祭 縁側 路地 商店街 駅 電車 踏切 信号 灯台 鉄塔 電線 図書館 学校 教室 黒板 鉛筆 手紙 切手 葉書 日記 写真 地図 羅針盤 時計 砂時計 望遠鏡 顕微鏡 天秤 歯車 蒸気 電気 磁石 回路 半導体 通信 衛星通信 暗号 言語学 文法 語源 方言 翻訳 辞書 百科事典 図鑑 年表 暦 太陰暦 節気 二十四節気 干支 占星術 錬金術 魔術 賢者の石 永久機関 万有引力 光年 宇宙線 重力波 時空 事象の地平線 虚数 素数 黄金比 円周率 自然対数 無理数 超越数 集合 写像 位相空間 多様体 リーマン面 群論 圏論 論理式 不完全性 決定不能 計算可能性 情報量 符号化 圧縮 並列 再帰 反復 停止性",
+    // English
+    "Aurora Eclipse Equinox Solstice Zenith Nadir Meridian Orbit Perihelion Nebula Galaxy Cluster Void Redshift Photon Neutrino Boson Fermion Quark Gluon Lepton Hadron Plasma Entanglement Superposition Decoherence Uncertainty Wavefunction Lagrangian Hamiltonian Manifold Tensor Geodesic Curvature Spacetime Cosmology Astrophysics Thermodynamics Electrodynamics Optics Acoustics Mechanics Kinematics Dynamics Equilibrium Gradient Divergence Curl Integral Derivative Limit Series Sequence Convergence Recursion Iteration Algorithm Heuristic Automaton Lattice Graph Vertex Edge Cycle Tree Forest Root Leaf Branch Canopy Understory Mycelium Rhizome Spore Pollen Seed Sprout Bloom Harvest Fallow Orchard Meadow Prairie Tundra Taiga Savanna Steppe Delta Estuary Lagoon Atoll Reef Fjord Glacier Moraine Canyon Plateau Ridge Summit Valley Cavern Grotto Geyser Magma Basalt Granite Obsidian Quartz Amber Jade Opal Garnet Zircon Cinnabar Mercury Sulfur Carbon Silicon Helium Neon Argon Radon Uranium Lithium Cobalt Platinum Lantern Compass Astrolabe Sextant Chronometer Orrery Telescope Microscope Prism Mirror Lens Lighthouse Harbor Voyage Odyssey Pilgrimage Exile Sanctuary Labyrinth Citadel Archive Library Atlas Codex Manuscript Scroll Parable Allegory Metaphor Irony Satire Elegy Ode Sonnet Haiku Epic Saga Fable Canon Syntax Semantics Pragmatics Phoneme Morpheme Lexicon Etymology Dialect Cipher Enigma Riddle Axiom Theorem Lemma Conjecture Heresy Dogma Doctrine Ritual Oracle Omen Prophecy Destiny Karma Dharma Samsara Nirvana Zen Tao Yin Yang Qi",
+    // Latin
+    "Lux Nox Dies Annus Tempus Aevum Mundus Caelum Sidus Stella Luna Sol Mare Unda Flumen Mons Silva Arbor Flos Folium Radix Terra Ignis Aer Ventus Tempestas Fulgur Tonitrus Nebula Pluvia Nix Glacies Vita Mors Anima Animus Cor Sanguis Os Manus Oculus Vox Verbum Lingua Liber Littera Carmen Cantus Musica Pictura Forma Figura Numerus Mensura Ordo Lex Jus Pax Bellum Gloria Fortuna Fatum Natura Ars Scientia Veritas Memoria Oblivio Somnium Imago Umbra Lumen Silentium Solitudo Amicitia Concordia Discordia Spes Gaudium Dolor Ira Timor Audacia Prudentia Temperantia Fortitudo Iustitia Sapientia Cogito Existentia Substantia Accidens Potentia Actus Causa Finis Initium Origo Aeternitas Infinitum Nihil Omnia Ubique Semper Memento Carpe Tabula Rasa Terra Incognita Anno Domini Vox Populi Magnum Opus Deus Ex Machina Ad Astra Per Aspera Alma Mater Genius Loci Sub Specie Aeternitatis",
+    // Greek (romanized) & Ελληνικά
+    "Cosmos Kosmos Chaos Gaia Ouranos Pontos Nyx Erebos Eros Thanatos Hypnos Helios Selene Eos Hesperos Phosphoros Chronos Kairos Aion Moira Tyche Nemesis Harmonia Eris Hestia Hermes Apollo Athena Artemis Dionysos Prometheus Atlas Orpheus Odysseus Icarus Daedalus Sisyphus Narcissus Echo Pandora Elysium Tartarus Lethe Styx Mnemosyne Sophia Philia Agape Storge Xenia Hubris Ananke Anagnorisis Catharsis Mimesis Poiesis Praxis Theoria Techne Episteme Gnosis Nous Logos Pneuma Psyche Soma Hyle Morphe Idea Eidolon Phantasia Aisthesis Dianoia Noesis Ekstasis Ataraxia Apatheia Eudaimonia Arete Kalokagathia Dike Themis Isonomia Demos Polis Agora Ekklesia Oikos Physis Nomos Ethos Pathos Mythos Phronesis Aporia Elenchus Dialectic Analogia Symmetria Harmonia Rhythmos Metron Apeiron Atomos Kenon Plenum Stoicheion Arche Telos Energeia Entelecheia Dynamis Ousia Genesis Phthora Kinesis Metabole Anamnesis Lethe Aletheia Doxa ΑΛΦΑ ΩΜΕΓΑ ΛΟΓΟΣ ΚΟΣΜΟΣ ΨΥΧΗ ΑΡΧΗ ΦΥΣΙΣ",
+    // 他言語（仏・独・伊・西・梵・アラビア・中・韓・露・北欧・ヘブライ等）
+    "Âme Éclat Lueur Horizon Mémoire Rêverie Silence Nostalgie Déjà-vu Flâneur Esprit Joie Raison Liberté Égalité Fraternité Zeitgeist Weltschmerz Sehnsucht Wanderlust Fernweh Gestalt Dasein Angst Geist Wille Übermensch Heimat Waldeinsamkeit Sturm Dämmerung Schadenfreude Anima Bellezza Sprezzatura Dolce Chiaroscuro Sfumato Vita Sol Duende Alma Sobremesa Saudade Mañana Quintaesencia Prana Atman Brahman Maya Lila Moksha Ahimsa Satya Shanti Ananda Chitta Buddhi Manas Akasha Shakti Shiva Vishnu Mandala Mantra Yantra Sutra Tantra Yoga Dhyana Samadhi Sangha Baraka Fana Hikma Salaam Nur Qalb Ruh Insha'Allah Shalom Ruach Neshama Tikkun Kavanah Hiraeth Cwtch Hygge Lagom Fika Sisu Kalsarikännit Friluftsliv Ubuntu Sawubona Aloha Mana Ohana Kintsugi Ikigai Komorebi Mono-no-aware Wabi-sabi Yugen Shinrin-yoku Kaizen Mottainai Tsundoku Boketto Natsukashii Taiji Dao De Ren Yi Li Zhi Xin Tian Di Ren Hé Yuanfen Samsara Han Jeong Nunchi Heung Dobro Toska Dusha Razdolye Taiga Volya Sobornost"
+  ];
+  var GR_ROOT = "Cosmo Psycho Theo Anthropo Bio Geo Helio Astro Chrono Logo Pneumo Neuro Eco Photo Hydro Pyro Aero Cryo Techno Socio Philo Onto Epistemo Ethno Morpho Phono Cyber Nano Macro Micro Hyper Hypo Thermo Electro Magneto Seismo Meteoro Oceano Limno Dendro Ornitho Entomo Ichthyo Myco Hydro Litho Cosmo Mytho Pheno Noo Chrono Topo Typo Etymo Semio Hermeneuto Dia Syn Meta Para Proto Neo Pan Poly Mono Omni Trans Inter Ultra Infra Pseudo Auto Allo Iso Hetero Homo Eu Dys Anti Peri Epi Endo Exo Ana Cata".split(" ");
+  var GR_SUF = "logy graphy genesis nomy sophy cracy philia phobia morphosis scope meter sphere cycle dynamics statics kinesis taxis tropism pathy gnosis poiesis mancy lith phyte zoa derm plasm".split(" ");
+  var EN_PRE = "Meta Proto Neo Pan Trans Inter Ultra Infra Hyper Para Retro Pre Post Super Sub Omni Quasi Semi Anti Co Re Un".split(" ");
+  var EN_SUF = "ness less ful ity ism ic al ous ive ation ward like".split(" ");
+  var JP_SUF = ["的","性","論","学","化","の海","の彼方","の記憶","の影","の光","の庭","の種","の門","の鏡","の螺旋","の夜","の風","の祈り","の理","の旅"];
+  var JP_PRE = ["超","原","反","準","大","小","深","純","無","真","新","古","永","微","広","高"];
+  var ALL_WORDS = (function () {
+    var set = {}, arr = [];
+    function add(w) { if (w && !set[w]) { set[w] = 1; arr.push(w); } }
+    NATURAL_WORDS.forEach(add);
+    EXTRA_BANKS.forEach(function (s) { s.split(/\s+/).forEach(add); });
+    for (var i = 0; i < GR_ROOT.length; i++) for (var j = 0; j < GR_SUF.length; j++) {
+      var r = GR_ROOT[i]; add(r + GR_SUF[j]);
+    }
+    return arr;
+  })();
+  function isJp(s) { return /[\u3040-\u30ff\u4e00-\u9fff]/.test(s); }
+  function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+
+  // 大規模連想辞書（主要語から意味的・連想的に広がる）
   var DICT = {
-    "雨": [["水滴","assoc"],["雨雲","assoc"],["雨傘","assoc"],["梅雨","hyper"],["豪雨","hypo"],["虹","assoc"],["Aqua","assoc"]],
-    "水": [["海洋","assoc"],["河川","hypo"],["氷結","deriv"],["液体","hyper"],["水蒸気","assoc"],["Aqua","syn"]],
-    "宇宙": [["星々","assoc"],["時間","assoc"],["空間","assoc"],["銀河","assoc"],["無限","assoc"],["重力","assoc"],["Cosmos","syn"]],
-    "心": [["感情","assoc"],["人間","assoc"],["記憶","assoc"],["思考","assoc"],["精神","syn"],["Logos","assoc"]],
-    "言葉": [["音声","assoc"],["文字","assoc"],["対話","assoc"],["意味","assoc"],["文学","hypo"],["Logos","syn"]]
+    // 自然・元素
+    "雨": [["水滴","assoc"],["雨雲","assoc"],["雨傘","assoc"],["梅雨","hyper"],["豪雨","hypo"],["虹","assoc"],["Aqua","assoc"],["降水","syn"],["湿り","deriv"]],
+    "水": [["海洋","assoc"],["河川","hypo"],["氷結","deriv"],["液体","hyper"],["水蒸気","assoc"],["Aqua","syn"],["命の源","assoc"],["清流","hypo"]],
+    "火": [["炎","syn"],["燃焼","assoc"],["熱","assoc"],["Ignis","syn"],["火山","assoc"],["光","assoc"],["破壊","assoc"],["再生","assoc"]],
+    "風": [["大気","assoc"],["そよ風","hypo"],["暴風","hypo"],["Ventus","syn"],["息","assoc"],["流れ","assoc"],["自由","assoc"]],
+    "土": [["大地","syn"],["土壌","hypo"],["Terra","syn"],["肥沃","assoc"],["砂漠","hypo"],["山","assoc"],["根","assoc"]],
+    "空": [["大気","assoc"],["青空","hypo"],["夜空","hypo"],["宇宙","hyper"],["雲","assoc"],["星","assoc"],["無限","assoc"]],
+    "海": [["海洋","syn"],["深海","hypo"],["波","assoc"],["潮","assoc"],["Aqua","assoc"],["島","assoc"],["水平線","assoc"]],
+    "山": [["高峰","hypo"],["火山","hypo"],["谷","assoc"],["岩","assoc"],["森","assoc"],["登頂","assoc"],["孤高","assoc"]],
+    "星": [["恒星","hyper"],["惑星","hypo"],["流星","hypo"],["銀河","assoc"],["夜空","assoc"],["星座","assoc"],["Nova","assoc"]],
+    "月": [["衛星","hyper"],["満月","hypo"],["新月","hypo"],["Luna","syn"],["潮汐","assoc"],["夜","assoc"],["影","assoc"]],
+    "太陽": [["恒星","hyper"],["光","assoc"],["熱","assoc"],["Sola","syn"],["日の出","assoc"],["日の入り","assoc"],["生命","assoc"]],
+    "光": [["光子","hypo"],["電磁波","hyper"],["影","assoc"],["Lumina","syn"],["輝き","assoc"],["真理","assoc"],["啓示","assoc"]],
+    "闇": [["暗黒","syn"],["夜","assoc"],["未知","assoc"],["恐怖","assoc"],["神秘","assoc"],["余白","assoc"]],
+    "自然": [["shizen","syn"],["生態系","assoc"],["循環","assoc"],["自在","assoc"],["森羅万象","assoc"],["Physis","syn"]],
+
+    // 精神・概念
+    "心": [["感情","assoc"],["人間","assoc"],["記憶","assoc"],["思考","assoc"],["精神","syn"],["Logos","assoc"],["魂","assoc"],["Anima","assoc"]],
+    "言葉": [["音声","assoc"],["文字","assoc"],["対話","assoc"],["意味","assoc"],["文学","hypo"],["Logos","syn"],["物語","assoc"],["詩","hypo"]],
+    "時間": [["過去","hypo"],["未来","hypo"],["現在","hypo"],["Chronos","syn"],["永遠","assoc"],["瞬間","hypo"],["Kairos","assoc"]],
+    "空間": [["次元","assoc"],["広がり","assoc"],["場所","hypo"],["真空","hypo"],["宇宙","hyper"],["余白","assoc"]],
+    "存在": [["有","syn"],["無","assoc"],["生命","assoc"],["意識","assoc"],["実在","syn"],["現象","assoc"]],
+    "意識": [["覚醒","assoc"],["無意識","assoc"],["自己","assoc"],["観測","assoc"],["精神","syn"],["Psyche","assoc"]],
+    "記憶": [["過去","assoc"],["忘却","assoc"],["記録","assoc"],["痕跡","assoc"],["残響","assoc"],["物語","assoc"]],
+    "希望": [["未来","assoc"],["光","assoc"],["Spes","syn"],["絶望","assoc"],["祈り","assoc"],["可能性","assoc"]],
+    "真理": [["真実","syn"],["Veritas","syn"],["Aletheia","syn"],["知識","assoc"],["哲学","assoc"],["発見","assoc"]],
+    "美": [["美しさ","syn"],["芸術","assoc"],["調和","assoc"],["Pulchritudo","syn"],["崇高","assoc"],["侘び","assoc"]],
+    "愛": [["愛情","syn"],["Amor","syn"],["Caritas","assoc"],["慈悲","assoc"],["情熱","assoc"],["献身","assoc"]],
+    "自由": [["解放","assoc"],["Libertas","syn"],["制約","assoc"],["選択","assoc"],["意志","assoc"],["翼","assoc"]],
+    "死": [["終焉","syn"],["再生","assoc"],["輪廻","assoc"],["虚無","assoc"],["永遠","assoc"],["影","assoc"]],
+    "生": [["生命","syn"],["誕生","assoc"],["成長","assoc"],["活力","assoc"],["呼吸","assoc"],["鼓動","assoc"]],
+
+    // 科学・数理
+    "宇宙": [["星々","assoc"],["時間","assoc"],["空間","assoc"],["銀河","assoc"],["無限","assoc"],["重力","assoc"],["Cosmos","syn"],["多元宇宙","hypo"]],
+    "量子": [["粒子","assoc"],["波動","assoc"],["不確定性","assoc"],["重ね合わせ","assoc"],["観測","assoc"],["Quantum","syn"]],
+    "エントロピー": [["無秩序","assoc"],["情報","assoc"],["熱力学","assoc"],["Entropy","syn"],["不可逆","assoc"],["複雑性","assoc"]],
+    "カオス": [["混沌","syn"],["Chaos","syn"],["秩序","assoc"],["予測不可能性","assoc"],["複雑系","assoc"],["創発","assoc"]],
+    "無限": [["有限","assoc"],["永遠","assoc"],["Apeiron","syn"],["極限","assoc"],["深淵","assoc"],["広がり","assoc"]],
+    "構造": [["秩序","assoc"],["システム","assoc"],["ネットワーク","assoc"],["階層","assoc"],["パターン","assoc"]],
+    "情報": [["データ","hypo"],["意味","assoc"],["エントロピー","assoc"],["通信","assoc"],["知識","assoc"]],
+
+    // 哲学・思想
+    "哲学": [["思索","assoc"],["知恵","assoc"],["Sophia","syn"],["問い","assoc"],["存在","assoc"],["倫理","assoc"]],
+    "禅": [["瞑想","assoc"],["無心","assoc"],["悟り","assoc"],["静寂","assoc"],["呼吸","assoc"],["今","assoc"]],
+    "道": [["Tao","syn"],["道程","assoc"],["修行","assoc"],["自然","assoc"],["流れ","assoc"],["中道","assoc"]],
+    "陰陽": [["対極","assoc"],["調和","assoc"],["循環","assoc"],["バランス","assoc"],["変化","assoc"]],
+    "縁": [["因果","assoc"],["結びつき","assoc"],["偶然","assoc"],["必然","assoc"],["関係","assoc"]],
+
+    // 多言語起点語
+    "Cosmos": [["宇宙","syn"],["秩序","assoc"],["Kosmos","syn"],["星々","assoc"],["調和","assoc"]],
+    "Logos": [["言葉","syn"],["理性","assoc"],["論理","assoc"],["原理","assoc"],["言説","assoc"]],
+    "Chaos": [["混沌","syn"],["無秩序","assoc"],["創造","assoc"],["深淵","assoc"],["可能性","assoc"]],
+    "Aether": [["エーテル","syn"],["天空","assoc"],["第五元素","assoc"],["透明","assoc"],["霊気","assoc"]],
+    "Veritas": [["真理","syn"],["真実","assoc"],["誠実","assoc"],["光","assoc"]],
+    "Chronos": [["時間","syn"],["流れ","assoc"],["歴史","assoc"],["老い","assoc"]],
+    "Kairos": [["好機","syn"],["瞬間","assoc"],["適切な時","assoc"],["決断","assoc"]],
+    "Anima": [["魂","syn"],["生命原理","assoc"],["心","assoc"],["息","assoc"]],
+    "Psyche": [["精神","syn"],["魂","assoc"],["心","assoc"],["蝶","assoc"]],
+    "Sophia": [["知恵","syn"],["哲学","assoc"],["洞察","assoc"],["悟り","assoc"]],
+    "Entropy": [["エントロピー","syn"],["無秩序","assoc"],["情報理論","assoc"],["不可逆性","assoc"]],
+    "Quantum": [["量子","syn"],["最小単位","assoc"],["不連続","assoc"],["確率","assoc"]]
   };
 
   var REL_TAG = { "syn": "類義", "hyper": "上位", "hypo": "下位", "assoc": "連想", "deriv": "派生", "seed": "起点" };
 
-  function expandWord(word) {
-    var out = [];
-    if (DICT[word]) {
-      var e = DICT[word];
-      for (var i = 0; i < e.length; i++) out.push({ word: e[i][0], rel: e[i][1] });
+  function expandWord(word, n) {
+    var out = [], local = {};
+    local[word] = 1;
+    function push(w, rel) {
+      if (!w || local[w] || seen[w] || w.length > 26) return false;
+      local[w] = 1; out.push({ word: w, rel: rel }); return true;
     }
-    
-    // 自然な多言語単語リストからシャッフル抽出（各ノードから最大7つの接続を分岐）
-    var poolCopy = NATURAL_WORDS.slice();
-    for (var k = poolCopy.length - 1; k > 0; k--) {
-      var r = Math.floor(Math.random() * (k + 1));
-      var temp = poolCopy[k]; poolCopy[k] = poolCopy[r]; poolCopy[r] = temp;
-    }
-    
+    if (DICT[word]) DICT[word].forEach(function (e) { push(e[0], e[1]); });
     var relTypes = ["assoc", "hyper", "hypo", "syn", "deriv"];
-    for (var j = 0; j < poolCopy.length && out.length < 7; j++) {
-      if (poolCopy[j] !== word) {
-        var rel = relTypes[Math.floor(Math.random() * relTypes.length)];
-        out.push({ word: poolCopy[j], rel: rel });
+    var jc = ["の", "と", "における", "から", "への", "×"], ec = [" of ", " and ", " in ", " from ", " to ", " · "];
+    var guard = 0, jp = isJp(word), latin = /^[A-Za-z]+$/.test(word);
+    while (out.length < n && guard++ < n * 25) {
+      var m = Math.random();
+      if (m < 0.50) {
+        push(pick(ALL_WORDS), pick(relTypes));
+      } else if (m < 0.68) {
+        if (jp && word.length <= 5) push(Math.random() < 0.7 ? word + pick(JP_SUF) : pick(JP_PRE) + word, "deriv");
+        else if (latin) push(Math.random() < 0.5 ? pick(EN_PRE) + word.toLowerCase() : word + pick(EN_SUF), "deriv");
+        else push(pick(GR_ROOT) + pick(GR_SUF), "deriv");
+      } else {
+        var w1 = Math.random() < 0.5 ? word : pick(ALL_WORDS), w2 = pick(ALL_WORDS);
+        if (w1 === w2 || w1.length > 12 || w2.length > 12) continue;
+        var a = isJp(w1), b = isJp(w2);
+        if (a && b) push(w1 + pick(jc) + w2, "assoc");
+        else if (!a && !b) push(w1 + pick(ec) + w2, "assoc");
+        else push(w1 + "・" + w2, "assoc");
       }
     }
     return out;
@@ -189,58 +433,50 @@
     return found;
   }
 
-  // ---------- AABB衝突判定 & ダイナミック広域配置 ----------
-  var MARGIN_X = 55; // ノード横間隔
-  var MARGIN_Y = 40; // ノード縦間隔
+  // ---------- 銀河配置：空間ハッシュで厳密な衝突判定（文字は絶対に重ならない） ----------
+  var MARGIN_X = 34, MARGIN_Y = 13;     // 文字間の最小余白
+  var RING_STEP = 150;                  // 親から子への基本距離
+  var RAD_STEP = 14, ARC_STEP = 52;     // 探索のリング幅・円弧幅
+  var A_TRIES = 30, RING_TRIES = 9;
+  var SWIRL = 0.42;   // 渦巻きの巻き込み強度（対数螺旋のピッチ）
+  var CELL = 80, grid = new Map(), galaxyR = 100;
 
-  function getBoundingBoxWidth(word, isSeed) {
-    var fontSize = isSeed ? 18 : 14;
-    var len = 0;
-    for (var i = 0; i < word.length; i++) {
-      len += word.charCodeAt(i) >= 0x2E80 ? 1.0 : 0.65;
-    }
-    return Math.ceil(len * fontSize + 24);
-  }
-
-  function positionNode(anchor, baseDist, existingNodes, width, height) {
-    var startAng = Math.random() * Math.PI * 2;
-    var nodeCount = existingNodes.length;
-
-    // 螺旋状探索（広大なキャンバスへ高密度・非重複で展開）
-    for (var ring = 0; ring < 300; ring++) {
-      var dist = baseDist + ring * 16;
-      var steps = 14 + Math.floor(ring * 2.5);
-      for (var i = 0; i < steps; i++) {
-        var ang = startAng + (i / steps) * Math.PI * 2;
-        var cx = Math.round(anchor.x + Math.cos(ang) * dist);
-        var cy = Math.round(anchor.y + Math.sin(ang) * dist);
-
-        var nl = cx - width / 2;
-        var nr = cx + width / 2;
-        var nt = cy - height / 2;
-        var nb = cy + height / 2;
-
-        var collide = false;
-        for (var k = 0; k < nodeCount; k++) {
-          var o = existingNodes[k];
-          if (!(nr + MARGIN_X <= o.l - MARGIN_X || 
-                nl - MARGIN_X >= o.r + MARGIN_X || 
-                nb + MARGIN_Y <= o.t - MARGIN_Y || 
-                nt - MARGIN_Y >= o.b + MARGIN_Y)) {
-            collide = true;
-            break;
-          }
-        }
-
-        if (!collide) {
-          return { x: cx, y: cy, l: nl, r: nr, t: nt, b: nb };
-        }
+  function gkey(x, y) { return (x + 20000) * 40000 + (y + 20000); }
+  function isFree(l, r, t, b) {
+    var x0 = Math.floor((l - MARGIN_X) / CELL), x1 = Math.floor((r + MARGIN_X) / CELL);
+    var y0 = Math.floor((t - MARGIN_Y) / CELL), y1 = Math.floor((b + MARGIN_Y) / CELL);
+    for (var x = x0; x <= x1; x++) for (var y = y0; y <= y1; y++) {
+      var a = grid.get(gkey(x, y));
+      if (!a) continue;
+      for (var i = 0; i < a.length; i++) {
+        var o = a[i];
+        if (l - MARGIN_X < o.r && r + MARGIN_X > o.l && t - MARGIN_Y < o.b && b + MARGIN_Y > o.t) return false;
       }
     }
-    
-    var farX = anchor.x + (Math.random() - 0.5) * 5000;
-    var farY = anchor.y + (Math.random() - 0.5) * 5000;
-    return { x: farX, y: farY, l: farX - width/2, r: farX + width/2, t: farY - height/2, b: farY + height/2 };
+    return true;
+  }
+  function gridInsert(n) {
+    for (var x = Math.floor(n.l / CELL); x <= Math.floor(n.r / CELL); x++)
+      for (var y = Math.floor(n.t / CELL); y <= Math.floor(n.b / CELL); y++) {
+        var k = gkey(x, y), a = grid.get(k);
+        if (a) a.push(n); else grid.set(k, [n]);
+      }
+  }
+  function findSpot(parent, hw, top, bot) {
+    if (!parent) return { x: 0, y: 0 };
+    var pr = Math.hypot(parent.x, parent.y);
+    var pa = pr < 1 ? Math.random() * 6.2832 : Math.atan2(parent.y, parent.x);
+    var a0 = pa + SWIRL * RING_STEP / Math.max(pr, 220) + (Math.random() - 0.5) * Math.min(0.9, 190 / Math.max(pr, 150));  // 対数螺旋の腕
+    var r = pr + RING_STEP, jumped = false;
+    for (var ring = 0; ; ring++) {
+      var rr = r + ring * RAD_STEP, dA = ARC_STEP / rr;
+      for (var j = 0; j < A_TRIES; j++) {
+        var ang = a0 + ((j & 1) ? 1 : -1) * Math.ceil(j / 2) * dA;
+        var cx = Math.cos(ang) * rr, cy = Math.sin(ang) * rr;
+        if (isFree(cx - hw, cx + hw, cy + top, cy + bot)) return { x: cx, y: cy };
+      }
+      if (!jumped && ring >= RING_TRIES) { jumped = true; r = Math.max(rr, galaxyR * 0.85); ring = -1; }
+    }
   }
 
   // ---------- Canvas & タッチ操作 ----------
@@ -271,8 +507,9 @@
   canvas.addEventListener("wheel", function (e) {
     e.preventDefault();
     userInteracted = true;
-    var factor = e.deltaY < 0 ? 1.05 : 0.95;
-    var newScale = Math.max(0.015, Math.min(3.0, view.scale * factor));
+    markDirty();
+    var factor = e.deltaY < 0 ? 1.06 : 0.94;
+    var newScale = Math.max(0.002, Math.min(4.0, view.scale * factor));
     
     var mx = e.clientX, my = e.clientY;
     var wx = (mx - view.x) / view.scale;
@@ -287,6 +524,7 @@
   canvas.addEventListener("pointerdown", function (e) {
     activePointers[e.pointerId] = { x: e.clientX, y: e.clientY };
     userInteracted = true;
+    markDirty();
 
     var ptrs = Object.keys(activePointers);
     if (ptrs.length === 1) {
@@ -305,6 +543,7 @@
   window.addEventListener("pointermove", function (e) {
     if (!activePointers[e.pointerId]) return;
     activePointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+    markDirty();
 
     var ptrs = Object.keys(activePointers);
     if (ptrs.length === 1 && dragging) {
@@ -320,7 +559,7 @@
       if (initialPinchDist > 5) {
         var center = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
         var factor = dist / initialPinchDist;
-        var newScale = Math.max(0.015, Math.min(3.0, initialScale * factor));
+        var newScale = Math.max(0.002, Math.min(4.0, initialScale * factor));
 
         var wx = (center.x - view.x) / view.scale;
         var wy = (center.y - view.y) / view.scale;
@@ -369,70 +608,73 @@
   function setStatus(msg) { statusEl.textContent = msg || ""; statusEl.style.display = msg ? "block" : "none"; }
 
   function addNode(word, rel, parentId, depth) {
-    var id = ++idCounter;
-    var isSeed = (rel === "seed");
-    var w = getBoundingBoxWidth(word, isSeed);
-    var h = isSeed ? 32 : 24;
-
+    var id = ++idCounter, isSeed = (rel === "seed");
+    ctx.font = isSeed ? "bold 20px sans-serif" : (rel === "hyper" ? "bold " : "") + "14px sans-serif";
+    var hw = Math.max(ctx.measureText(word).width, 22) / 2 + 3;
+    var top = isSeed ? -14 : -17, bot = isSeed ? 18 : 9;
     var parent = parentId ? nodes[parentId - 1] : null;
-    var pos;
-    if (parent) {
-      pos = positionNode(parent, 160 + Math.min(depth, 15) * 10, nodes, w, h);
-    } else {
-      pos = { x: 0, y: 0, l: -w/2, r: w/2, t: -h/2, b: h/2 };
-    }
-
+    var pos = findSpot(parent, hw, top, bot);
     var node = {
       id: id, word: word, rel: rel, parentId: parentId, depth: depth,
-      x: pos.x, y: pos.y, l: pos.l, r: pos.r, t: pos.t, b: pos.b,
-      w: w, h: h, alpha: 0
+      x: pos.x, y: pos.y, l: pos.x - hw, r: pos.x + hw, t: pos.y + top, b: pos.y + bot,
+      w: hw * 2, h: bot - top, alpha: 0
     };
+    gridInsert(node);
+    var d = Math.hypot(pos.x, pos.y) + hw;
+    if (d > galaxyR) galaxyR = d;
     nodes.push(node);
     return node;
   }
 
   function autoFit() {
     if (!nodes.length || userInteracted) return;
-    
-    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    var step = nodes.length > 1000 ? 8 : 1;
-    for (var i = 0; i < nodes.length; i += step) {
-      minX = Math.min(minX, nodes[i].l); minY = Math.min(minY, nodes[i].t);
-      maxX = Math.max(maxX, nodes[i].r); maxY = Math.max(maxY, nodes[i].b);
-    }
-    var bw = Math.max(maxX - minX, 200), bh = Math.max(maxY - minY, 200);
-    var pad = 180;
-    var s = Math.min((window.innerWidth - pad) / bw, (window.innerHeight - pad) / bh);
-    s = Math.max(0.015, Math.min(s, 0.9));
-
-    view.scale = s;
-    view.x = window.innerWidth / 2 - ((minX + maxX) / 2) * s;
-    view.y = window.innerHeight / 2 - ((minY + maxY) / 2) * s;
+    var R = galaxyR + 120;
+    var s = Math.min((window.innerWidth - 120) / (R * 2), (window.innerHeight - 120) / (R * 2));
+    view.scale = Math.max(0.0015, Math.min(s, 1.1));
+    view.x = window.innerWidth / 2;
+    view.y = window.innerHeight / 2;
   }
 
-  // ---------- 描画 ----------
-  function render() {
+  // ---------- 描画（高速化版） ----------
+  var needsRedraw = true;
+  var lastFrameTime = 0;
+
+  function render(timestamp) {
+    // インタラクション中は毎フレーム、静止時は必要時のみ描画してカクつきを抑制
+    if (!needsRedraw && (timestamp - lastFrameTime < 32)) {
+      requestAnimationFrame(render);
+      return;
+    }
+    lastFrameTime = timestamp || 0;
+    needsRedraw = false;
+
     var theme = THEME[currentPhase];
+    var w = window.innerWidth;
+    var h = window.innerHeight;
+
     ctx.save();
     ctx.scale(dpr, dpr);
-
     ctx.fillStyle = theme.bg;
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+    ctx.fillRect(0, 0, w, h);
 
     if (phase === "running" || phase === "ended") {
       ctx.save();
       ctx.translate(view.x, view.y);
       ctx.scale(view.scale, view.scale);
 
-      var screenL = -view.x / view.scale - 120;
-      var screenR = (window.innerWidth - view.x) / view.scale + 120;
-      var screenT = -view.y / view.scale - 120;
-      var screenB = (window.innerHeight - view.y) / view.scale + 120;
+      var invScale = 1 / view.scale;
+      var margin = 180 * invScale;
+      var screenL = -view.x * invScale - margin;
+      var screenR = (w - view.x) * invScale + margin;
+      var screenT = -view.y * invScale - margin;
+      var screenB = (h - view.y) * invScale + margin;
 
-      // 1. 接続線
-      ctx.lineWidth = 1 / view.scale;
+      // 1. 接続線（細く・控えめに描画して文字の可読性を優先）
+      ctx.lineWidth = Math.max(0.4, 0.7 * invScale);
       ctx.strokeStyle = theme.line;
+      ctx.globalAlpha = 0.55;
       ctx.beginPath();
+      var lineCount = 0;
       for (var i = 1; i < nodes.length; i++) {
         var n = nodes[i];
         var p = nodes[n.parentId - 1];
@@ -440,52 +682,61 @@
         if ((n.x < screenL && p.x < screenL) || (n.x > screenR && p.x > screenR) ||
             (n.y < screenT && p.y < screenT) || (n.y > screenB && p.y > screenB)) continue;
 
-        var mx = (p.x + n.x) / 2 + (n.y - p.y) * 0.1;
-        var my = (p.y + n.y) / 2 - (n.x - p.x) * 0.1;
+        var mx = (p.x + n.x) * 0.5 + (n.y - p.y) * 0.06;
+        var my = (p.y + n.y) * 0.5 - (n.x - p.x) * 0.06;
         ctx.moveTo(p.x, p.y);
         ctx.quadraticCurveTo(mx, my, n.x, n.y);
+        lineCount++;
+        if (lineCount > 7000) break;
       }
       ctx.stroke();
+      ctx.globalAlpha = 1;
 
-      // 2. ノード描画
+      // 2. ノード描画（ctx.save/restore を減らして高速化）
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
       for (var j = 0; j < nodes.length; j++) {
         var node = nodes[j];
         if (node.x < screenL || node.x > screenR || node.y < screenT || node.y > screenB) continue;
 
-        if (node.alpha < 1) node.alpha = Math.min(1, node.alpha + 0.18);
-
-        ctx.save();
-        ctx.translate(node.x, node.y);
-        ctx.globalAlpha = node.alpha;
+        if (node.alpha < 1) {
+          node.alpha = Math.min(1, node.alpha + 0.25);
+          needsRedraw = true; // フェード中は再描画
+        }
 
         var color = theme[node.rel] || theme.text;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
+        ctx.globalAlpha = node.alpha;
+        if (node.rel !== "seed" && view.scale < 0.2) {   // 遠景：文字が小さすぎる場合は点で表現
+          ctx.fillStyle = color;
+          var ds = Math.max(1.4, 4 * view.scale) * invScale * 0.5;
+          if (view.scale * 14 < 3) { ctx.fillRect(node.x - ds, node.y - ds, ds * 2, ds * 2); continue; }
+        }
 
         if (node.rel === "seed") {
-          ctx.font = "bold 18px sans-serif";
+          ctx.font = "bold 20px sans-serif";
           ctx.fillStyle = theme.text;
-          ctx.fillText(node.word, 0, 0);
-          ctx.lineWidth = 2;
+          ctx.fillText(node.word, node.x, node.y);
+          ctx.lineWidth = 2.2;
           ctx.strokeStyle = theme.text;
           ctx.beginPath();
-          ctx.moveTo(-node.w / 2 + 4, 14);
-          ctx.lineTo(node.w / 2 - 4, 14);
+          ctx.moveTo(node.x - node.w / 2 + 6, node.y + 15);
+          ctx.lineTo(node.x + node.w / 2 - 6, node.y + 15);
           ctx.stroke();
         } else {
-          ctx.font = "9px monospace";
-          ctx.fillStyle = color;
-          ctx.globalAlpha = node.alpha * 0.6;
-          ctx.fillText(REL_TAG[node.rel] || "", 0, -13);
-
-          ctx.globalAlpha = node.alpha;
+          // 関係タグは十分拡大したときだけ表示（重なり防止）
+          if (view.scale > 0.55) {
+            ctx.font = "8px monospace";
+            ctx.fillStyle = color;
+            ctx.globalAlpha = node.alpha * 0.45;
+            ctx.fillText(REL_TAG[node.rel] || "", node.x, node.y - 13);
+            ctx.globalAlpha = node.alpha;
+          }
           ctx.font = (node.rel === "hyper" ? "bold " : "") + "14px sans-serif";
           ctx.fillStyle = color;
-          ctx.fillText(node.word, 0, 0);
+          ctx.fillText(node.word, node.x, node.y);
         }
-        ctx.restore();
       }
-
+      ctx.globalAlpha = 1;
       ctx.restore();
     }
 
@@ -494,41 +745,36 @@
   }
   requestAnimationFrame(render);
 
-  // ---------- 無限拡大言語宇宙の生成ループ ----------
-  var MAX_NODES = 6000; // 巨大言語宇宙（6,000ノード）
+  // インタラクション時に再描画フラグを立てる
+  function markDirty() { needsRedraw = true; }
 
-  async function loop() {
-    while (running) {
-      if (nodes.length >= MAX_NODES) { setStatus("無限言語宇宙完成 · esc で終了"); break; }
-      var nextId = queue.shift();
-      if (nextId == null) { setStatus("宇宙展開完了 · esc で終了"); break; }
-      var node = nodes[nextId - 1];
-      if (!node) continue;
+  // ---------- 無限拡大言語宇宙の生成ループ（時間分割で高速・深度上限なし） ----------
+  var MAX_NODES = 40000;   // 最低6,000以上。性能上の安全上限
+  var BRANCH_MIN = 9, BRANCH_VAR = 7;   // 各ノードから生成する関連語数（9〜15）
 
-      var related = expandWord(node.word);
-      var added = 0;
-      for (var i = 0; i < related.length && nodes.length < MAX_NODES; i++) {
+  function tick() {
+    if (!running) return;
+    var t0 = performance.now();
+    while (running && performance.now() - t0 < 24) {
+      if (nodes.length >= MAX_NODES) { setStatus("言語宇宙 完成 · esc で終了"); running = false; break; }
+      if (!queue.length) queue.push(nodes[Math.floor(Math.random() * nodes.length)].id);
+      var qi = Math.floor(Math.random() * Math.min(queue.length, 700));
+      var node = nodes[queue.splice(qi, 1)[0] - 1];
+      var related = expandWord(node.word, BRANCH_MIN + Math.floor(Math.random() * BRANCH_VAR));
+      for (var i = 0; i < related.length; i++) {
         var item = related[i];
-        if (!item.word || seen[item.word]) continue;
+        if (seen[item.word]) continue;
         seen[item.word] = 1;
-        var newNode = addNode(item.word, item.rel, node.id, node.depth + 1);
-        queue.push(newNode.id);
-        added++;
+        queue.push(addNode(item.word, item.rel, node.id, node.depth + 1).id);
+        if (node.depth + 1 > stats.depth) stats.depth = node.depth + 1;
       }
-
-      stats.nodes = nodes.length;
-      stats.depth = Math.max(stats.depth, node.depth + 1);
-      stats.elapsed = Math.floor((Date.now() - startTs) / 1000);
-      
-      hudEl.innerHTML =
-        "ELAPSED " + fmtTime(stats.elapsed) + "<br>" +
-        "NODES " + stats.nodes + "<br>" +
-        "DEPTH " + stats.depth + "<br>" +
-        "QUEUE " + queue.length;
-
-      if (nodes.length % 12 === 0) autoFit();
-      await new Promise(function (r) { setTimeout(r, added ? 6 : 2); });
     }
+    stats.nodes = nodes.length;
+    stats.elapsed = Math.floor((Date.now() - startTs) / 1000);
+    hudEl.innerHTML = "ELAPSED " + fmtTime(stats.elapsed) + "<br>NODES " + stats.nodes + "<br>DEPTH " + stats.depth + "<br>QUEUE " + queue.length;
+    autoFit();
+    needsRedraw = true;
+    if (running) setTimeout(tick, 0);
   }
 
   function fmtTime(s) {
@@ -552,6 +798,13 @@
     nodes = []; queue = []; seen = {}; idCounter = 0;
     stats = { elapsed: 0, nodes: 0, depth: 0 };
     userInteracted = false;
+    grid = new Map(); galaxyR = 100;
+    needsRedraw = true;
+
+    // シードを完全に原点（銀河中心）に置く
+    view.x = window.innerWidth / 2;
+    view.y = window.innerHeight / 2;
+    view.scale = 0.85;
 
     var seedNode = addNode(text, "seed", null, 0);
     seen[text] = 1;
@@ -572,7 +825,7 @@
     phase = "running";
     running = true;
     startTs = Date.now();
-    loop();
+    tick();
   }
 
   sentenceEl.addEventListener("keydown", function (e) {
